@@ -41,8 +41,8 @@ class Type(object):
         AMPERSAND, TYPE, CREMENT, IGNORE, KW_EXTERN, BREAK, FOR, SWITCH, CASE,
         STRUCT, CONTINUE, TYPEDEF, RETURN, UNKNOWN, CONSTANT, WHILE, DO,
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
-        LINE_CONT, DEFAULT, NOT
-    ) = range(42)
+        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE
+    ) = range(45)
 
 class Fragment(object):
     """ This is where we start getting funky with building the structure of
@@ -101,6 +101,8 @@ class Word(object):
         elif line.lower() in ["#include", "#ifdef", "#ifndef", "#endif",
                 "#undef"]:
             self.type = Type.INCLUDE
+        elif line == "#":
+            self.type = Type.PRECOMPILER
         elif line == "if":
             self.type = Type.IF
         elif line == "else":
@@ -177,6 +179,10 @@ class Word(object):
             self.type = Type.RSQUARE
         elif line == "\\":
             self.type = Type.LINE_CONT
+        elif line == "sizeof":
+            self.type = Type.SIZEOF
+        elif line == "__attribute__":
+            self.type = Type.ATTRIBUTE
         else:
             d(["D: finalise() could not match type for", self])
             self.type = Type.UNKNOWN #variables and externally defined types
@@ -626,6 +632,19 @@ class Styler(object):
             elif self.current_token.type == Type.DEFINE:
                 self.match()
                 self.check_define()
+            #precompiler split by space
+            elif self.current_token.type == Type.PRECOMPILER:
+                self.match(Type.PRECOMPILER)
+                self.check_whitespace(0)
+                print self.current_token
+                if self.current_token.line == "define":
+                    self.match()
+                    print self.current_token
+                    self.check_define()
+                else:
+                    self.match()
+                    print self.current_token
+                    self.consume_line()
             #declaration
             elif self.current_token.type in [Type.TYPE, Type.UNKNOWN]:
                 self.check_declaration()
@@ -682,6 +701,19 @@ class Styler(object):
         self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_block()
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
+        if self.current_token.type == Type.ATTRIBUTE:
+            #ruh roh
+            print "manual checking of __attribute__ tag required on line", \
+                    self.current_token.line_number
+            self.match(Type.ATTRIBUTE)
+            self.match(Type.LPAREN)
+            depth = 1
+            while depth != 0:
+                if self.current_token.type == Type.LPAREN:
+                    depth += 1
+                elif self.current_token.type == Type.RPAREN:
+                    depth -= 1
+                self.match()
         if not isTypedef:
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["D: check_struct() exited", self.current_token])
@@ -832,6 +864,31 @@ class Styler(object):
             self.match(Type.SEMICOLON, True)
         d(["D: check_statement(): exited", self.current_token])
 
+    def check_sizeof(self):
+        d(["D: check_sizeof(): entered", self.current_token])
+        #size of type
+        if self.current_token.type == Type.LPAREN:
+            self.check_whitespace(0)
+            self.match(Type.TYPE)
+            while self.current_token.type == Type.TYPE:
+                self.check_whitespace(1)
+                self.match(Type.TYPE)
+            if self.current_token.type == Type.STAR:
+                self.check_whitespace(1, ALLOW_ZERO)
+                self.match(Type.STAR)
+            while self.current_token.type == Type.STAR:
+                self.check_whitespace(0)
+                self.match(Type.STAR)
+            self.check_whitespace(0)
+            self.match(Type.RPAREN)
+        #size of variable
+        elif self.current_token.type == Type.UNKNOWN:
+            self.check_whitespace(1)
+            self.match(Type.UNKNOWN)
+        else:
+            print "check_sizeof(): unexpected token:", self.current_token
+        
+        d(["D: check_sizeof(): exited", self.current_token])
 
     def check_expression(self):
         d(["D: check_exp(): entered", self.current_token])
@@ -859,7 +916,22 @@ class Styler(object):
         elif self.current_token.type == Type.RPAREN:
             #end this
             self.match(Type.RPAREN)
+            d(["D: check_exp(): exited", self.current_token])
             return
+        #it could be sizeof, which is not actually an expression so much
+        elif self.current_token.type == Type.SIZEOF:
+            self.check_sizeof()
+            #e.g. a = sizeof(stuff); or b = sizeof stuff
+            if self.current_token.type == Type.SEMICOLON:
+                self.match(Type.ANY)
+                return
+            #sizeof(stuff) * other_stuff
+            elif self.current_token.type in [Type.STAR, Type.BINARY_OP,
+                    Type.MINUS]:
+                self.check_whitespace(1, ALLOW_ZERO)
+                self.match(Type.ANY)
+                self.check_whitespace(1, ALLOW_ZERO)
+            #we return now to your previous scheduled expression evaluation
         elif self.current_token.type not in [Type.UNKNOWN, Type.CONSTANT]:
             d(["D: check_exp(): unexpected token:", self.current_token])
 
@@ -867,25 +939,29 @@ class Styler(object):
         while self.current_token.type in [Type.UNKNOWN, Type.CONSTANT]:
             self.match() #the value
             #check if it was a function, check if it's being called
-            if self.current_token.type == Type.LPAREN:
+            #possibly also a indexing operation with equivalent contents
+            if self.current_token.type in [Type.LPAREN, Type.LSQUARE]:
+                recovery = Type.RPAREN
+                if self.current_token.type == Type.LSQUARE:
+                    recovery = Type.RSQUARE
                 self.check_whitespace(0)
-                self.match(Type.LPAREN)
+                self.match(Type.ANY)
                 self.check_whitespace(0)
-                #does it have args
-                if self.current_token.type != Type.RPAREN:
-                    #process first arg
+                #does it have args/index
+                if self.current_token.type != recovery:
+                    #process first arg/index
                     self.check_expression()
-                    #process others, if they exist
+                    #process others, if they exist (only for funcs)
                     while self.current_token.type == Type.COMMA:
                         self.check_whitespace(0)
                         self.match(Type.COMMA)
                         self.check_whitespace(1)
                         self.check_expression()
                 self.check_whitespace(0)
-                self.match(Type.RPAREN)
+                self.match(recovery)
             # now grab the operators before the next value
             while self.current_token.type in [Type.CREMENT, Type.BINARY_OP,
-                    Type.LOGICAL_OP, Type.MINUS]:
+                    Type.LOGICAL_OP, Type.MINUS, Type.STAR]:
                 self.check_whitespace(1, ALLOW_ZERO)
                 self.match() #'-- / - &&' etc
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -905,6 +981,12 @@ class Styler(object):
                 self.check_declaration()
                 if self.current_token.type == Type.SEMICOLON:
                     self.match(Type.SEMICOLON, MUST_NEWLINE)
+            elif self.current_token.type == Type.STRUCT:
+                self.match(Type.STRUCT)
+                self.check_whitespace(1)
+                self.match(Type.UNKNOWN) #the struct type
+                self.check_whitespace(1)
+                self.check_declaration()
             elif self.current_token.type == Type.RETURN:
                 self.match(Type.RETURN)
                 if self.current_token.type != Type.SEMICOLON:
@@ -956,6 +1038,10 @@ class Styler(object):
             elif self.current_token.type == Type.UNKNOWN:
                 self.match(Type.UNKNOWN)
                 self.check_statement()
+            elif self.current_token.type == Type.LBRACE:
+                self.match(Type.LBRACE)
+                self.check_block()
+                self.match(Type.RBRACE)
             else:
                 print "check_block(): unexpected token:", self.current_token
                 self.match()
@@ -967,13 +1053,14 @@ class Styler(object):
 #TODO 
         print "check_define(): not properly implemented"
         self.check_whitespace(1)
-        while self.current_token.type != Type.NEWLINE:
+        while self.current_token.type not in [Type.NEWLINE, Type.COMMENT]:
             self.position += 1
-            self.current_token = self.tokens[i]
+            self.current_token = self.tokens[self.position]
             self.check_whitespace(1)
+            print "not yet newline: ", self.current_token
         self.check_whitespace(0)
         self.position += 1
-        self.current_token = self.tokens[i]
+        self.current_token = self.tokens[self.position]
 
     def check_array_assignment(self):
         if self.current_token.type == Type.UNKNOWN:
@@ -1001,12 +1088,14 @@ class Styler(object):
     def check_declaration(self):
         d(["D:check_declaration() entered", self.current_token])
         array = False
-        #skip all the potential types and modifiers
-        while self.current_token.type != Type.UNKNOWN:
-            d(["D:decl: consuming:", self.current_token])
-            self.match() #type/modifier
-            self.check_whitespace(1)
-        self.match(Type.UNKNOWN)
+        #if there hasn't been a terrible omission of a function return type
+        if self.current_token.type != Type.LPAREN:
+            #skip all the potential types and modifiers
+            while self.current_token.type != Type.UNKNOWN:
+                d(["D:decl: consuming:", self.current_token])
+                self.match() #type/modifier
+                self.check_whitespace(1)
+            self.match(Type.UNKNOWN)
         #is this a function?
         if self.current_token.type == Type.LPAREN:
             d(["D:decl is a func", self.previous_token()])
