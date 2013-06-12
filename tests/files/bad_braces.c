@@ -4,6 +4,8 @@
 ** violations.
 */
 
+int fb(int);
+
 /* not a violation, functions may be either */
 void good_func(void)
 {
@@ -46,8 +48,8 @@ int fb(int a) {
 }
 
 /* 3 violations */
-void missing_braces(void) {
-    int a;
+int missing_braces(void) {
+    int a = 1;
     if (a) //violation
         return 0;
     else if (a - 1) //violation
@@ -58,6 +60,7 @@ void missing_braces(void) {
 
 /* 3 violations */
 void bad_loops(void) {
+    int a;
     for (int i = 0; i < 10; i++) 
     { //violation
         a = i;
@@ -72,7 +75,7 @@ void bad_loops(void) {
 
 /* 3 violations */
 int main () {
-    int a;
+    int a = 1;
     switch (a)
     { //violation
     case 0:
@@ -83,7 +86,7 @@ int main () {
     if (fa(a)) {
         a = 1;
     } //violation
-    else if (fb(b)) {
+    else if (fb(a)) {
         a = 2;
     } //violation
     else {
