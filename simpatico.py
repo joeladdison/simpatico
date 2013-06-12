@@ -840,7 +840,7 @@ class Styler(object):
             self.match(Type.AMPERSAND)
             self.check_whitespace(0)
         elif self.current_token.type == Type.STAR:
-            self.match(Type.MINUS)
+            self.match(Type.STAR)
             self.check_whitespace(0)
         elif self.current_token.type == Type.MINUS:
             self.match(Type.MINUS)
