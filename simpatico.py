@@ -1096,4 +1096,5 @@ if __name__ == '__main__':
             print 'Parsing %s...' % sys.argv[i]
             style = Styler(sys.argv[i])
             print style.errors
+            print "THIS IS NOT A GUARANTEE OF CORRECTNESS"
 
