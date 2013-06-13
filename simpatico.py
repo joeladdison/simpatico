@@ -1051,17 +1051,53 @@ class Styler(object):
 
     def check_define(self):
 #TODO 
-        print "check_define(): not properly implemented"
+        print "check_define(): not completely implemented"
         self.check_whitespace(1)
-        while self.current_token.type not in [Type.NEWLINE, Type.COMMENT]:
+        first = self.current_token
+        self.match()
+        #is it a macro
+        if self.current_token.type == Type.LPAREN:
+            self.check_whitespace(0)
+            #this will be awkward, so 
+#TODO mark it to be manually checked
+            #then consume until newline for now
+            #TODO but will have to be fixed later in case of awkwardness
+            while self.current_token.type != Type.NEWLINE:
+                self.position += 1
+                self.current_token = self.tokens[self.position]
             self.position += 1
             self.current_token = self.tokens[self.position]
+        #just a plain identifier swap
+        else:
             self.check_whitespace(1)
-            print "not yet newline: ", self.current_token
-        self.check_whitespace(0)
-        self.position += 1
-        self.current_token = self.tokens[self.position]
-
+            tokens = []
+            while self.current_token.type not in [Type.NEWLINE,
+                    Type.COMMENT]:
+                tokens.append(self.current_token)
+                self.position += 1
+                self.current_token = self.tokens[self.position]
+            self.match()
+            if first.type == Type.UNKNOWN:
+                if first.line.upper() != first.line:
+                    self.errors.naming(first, Errors.DEFINE)
+                if len(tokens) > 1:
+#TODO
+                    print "not finished"
+                else:
+                    if tokens[0] != Type.UNKNOWN:
+                        for n in xrange(self.position + 1, len(self.tokens)):
+                            if self.tokens[n].line == first.line:
+                                self.tokens[n].type = tokens[0].type
+            #oh my, they #defined an existing symbol/keyword
+            else:
+                if len(tokens) > 1:
+                    print "this is terrible, why do this to me"
+#TODO this case ought to be fixed, but... eeeeuuurgghhh
+                else:
+                    for n in xrange(self.position + 1, len(self.tokens)):
+                        if self.tokens[n].type == first.type:
+                            self.tokens[n].type = tokens[0].type
+        
     def check_array_assignment(self):
         if self.current_token.type == Type.UNKNOWN:
             #assignment is to another variable
