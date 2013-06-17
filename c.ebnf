@@ -65,6 +65,7 @@ token ::= keyword | identifier | constant | string-literal | punctuator;
 preprocessing_token ::= header-name | identifier | pp-number 
                     | character-constant | string-literal | punctuator 
                     | non-whitespace-char;
+                    
 keyword ::= KW_AUTO | KW_BREAK | KW_CASE | KW_CHAR | KW_CONST | KW_CONTINUE
         | KW_DEFAULT | KW_DO | KW_DOUBLE | KW_ELSE | KW_ENUM | KW_EXTERN
         | KW_FLOAT | KW_FOR | KW_GOTO | KW_IF | KW_INLINE | KW_INT | KW_LONG
@@ -73,7 +74,7 @@ keyword ::= KW_AUTO | KW_BREAK | KW_CASE | KW_CHAR | KW_CONST | KW_CONTINUE
         | KW_UNION | KW_UNSIGNED | KW_VOID | KW_VOLATILE | KW_WHILE
         | KW_BOOL | KW_COMPLEX | KW_IMAGINARY;
 
-identifier ::= identifier-nondigit, {nondigit | digit}
+identifier ::= identifier-nondigit, { nondigit | digit };
 
 identifier-nondigit ::= nondigit | universal-character-name;
 
@@ -117,7 +118,7 @@ fractional-constant ::= [digit-sequence] KW_PERIOD digit-sequence
 
 exponent-part ::= ("e" | "E") [sign] digit-sequence;
 
-digit-sequence ::= digit, {digit}
+digit-sequence ::= digit, { digit };
 
 hexadecimal-fractional-constant ::= [hexadecimal-digit-sequence], KW_PERIOD, hexadecimal-digit-sequence
     | hexadecimal-digit-sequence, KW_PERIOD;
@@ -132,7 +133,7 @@ enumeration-constant ::= identifier;
 character-constant ::= KW_APOSTROPHE, c-char-sequence, KW_APOSTROPHE
         | "L", KW_APOSTROPHE, c-char-sequence, KW_APOSTROPHE;
     
-c-char-sequence ::= c-char {c-char};
+c-char-sequence ::= c-char, { c-char };
 
 c-char ::=  anything but KW_APOSTROPHE, "\", new-line
     | escape-sequence;
@@ -143,14 +144,14 @@ escape-sequence ::= simple-escape-sequence | octal-escape-sequence
 simple-escape-sequence ::= "\'" | "\"" | "\?" | "\\" | "\a" | "\b" | "\f"
                         | "\n" | "\r" | "\t" | "\v";
 
-octal-escape-sequence ::= "\", octal-digit, {octal-digit} * 2;
+octal-escape-sequence ::= "\", octal-digit, { octal-digit } * 2;
 
 hexadecimal-escape-sequence ::= "\x", hexadecimal-digit
                         | hexadecimal-escape-sequence, hexadecimal-digit;
 
 string-literal ::= ["L"], KW_QUOTE, [s-char-sequence], KW_QUOTE;
 
-s-char-sequence ::= s-char, {s-char};
+s-char-sequence ::= s-char, { s-char };
 
 s-char ::= anything but KW_QUOTE, "\", new-line
         | escape-sequence;
@@ -165,15 +166,15 @@ punctuator ::= "[" | "]" | "(" | ")" | "{" | "}" | "." | "->" | "++" | "--"
 header-name ::= "<", h-char-sequence, ">" 
             | KW_QUOTE, q-char-sequence, KW_QUOTE;
     
-h-char-sequence ::= h-char {h-char};
+h-char-sequence ::= h-char, { h-char };
     
 h-char ::= <any character except newline and ">" >
     
-q-char-sequence ::= q-char {q-char};
+q-char-sequence ::= q-char, { q-char };
 
 q-char ::= <any char except newline and ">
     
-pp-number ::= (digit | KW_PERIOD), digit 
+pp-number ::= ( digit | KW_PERIOD ), digit 
     | pp-number, ( digit | indentifier-nondigit)
     | pp-number, ( "e" | "E" | "p" | "P" ), sign
     | pp-number, KW_PERIOD;
@@ -188,7 +189,7 @@ postfix-expression ::= primary-expression
     | postfix-expression, ( "++" | "--")
     | "(", type-name, ")", "{", initializer-list, [","], "}";
     
-argument-expression-list ::= {argument-expression-list, KW_PERIOD} * 1,  assignment-expression;
+argument-expression-list ::= [ argument-expression-list, KW_PERIOD ],  assignment-expression;
 
 unary-expression ::= postfix-expression 
     | ("++" | "--" | KW_SIZEOF), unary-expression
@@ -200,25 +201,25 @@ unary-operator ::= "&" | "*" | "+" | "-" | "~" | "!";
 cast-expression ::= unary-expression | "(", type-name, ")", cast-expression;
     
 multiplicative-expression ::= case-expression
-    | multiplicative-expression, "*" | "/" | "%", cast-expression;
+    | multiplicative-expression, ( "*" | "/" | "%" ), cast-expression;
     
-additive-expression ::= {additive-expression, "+" | "-"} * 1,  multiplicative-expression;
+additive-expression ::= [ additive-expression, ( "+" | "-" ) ],  multiplicative-expression;
     
-shift-expression ::= {shift-expression, "<<" | ">>" } * 1, additive-expression;
+shift-expression ::= [ shift-expression, ( "<<" | ">>" ) ], additive-expression;
     
-relational-expression ::= {relational-expression, "<" | ">" | "<=" | ">=" } * 1, shift-expression;
+relational-expression ::= [relational-expression, ("<" | ">" | "<=" | ">=") ], shift-expression;
     
-equality-expression ::= {equality-expression, "==" | "!=" } * 1, relational-expression;
+equality-expression ::= [ equality-expression, "==" | "!=" ], relational-expression;
 
-AND-expression ::= {AND-expression, "&"} * 1, equality-expression;
+AND-expression ::= [ AND-expression, "&" ], equality-expression;
 
-exclusive-OR-expression ::= {exclusive-OR-expression, "^"} * 1, AND-expression;
+exclusive-OR-expression ::= [exclusive-OR-expression, "^"], AND-expression;
     
-inclusive-OR-expression ::= {inclusive-OR-expression, "|"} * 1, exclusive-OR-expression;
+inclusive-OR-expression ::= [inclusive-OR-expression, "|"], exclusive-OR-expression;
 
-logical-AND-expression ::= {logical-AND-expression, "&&"} * 1, inclusive-OR-expression;
+logical-AND-expression ::= [logical-AND-expression, "&&"], inclusive-OR-expression;
     
-logical-OR-expression ::= {logical-OR-expression, "||"} * 1, logical-AND-expression;
+logical-OR-expression ::= [logical-OR-expression, "||"], logical-AND-expression;
 
 conditional-expression ::= logical-OR-expression
     | logical-OR-expression "?" expression ":" conditional-expression;
@@ -229,7 +230,7 @@ assignment-expression ::= conditional-expression
 assignment-operator ::= "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" 
                     | ">>=" | "&=" | "^=" | "|=";
 
-expression ::= {expression, KW_COMMA} * 1, assignment-expression;
+expression ::= { expression, KW_COMMA }, assignment-expression;
 
 constant-expression ::= conditional-expression;
     
@@ -240,7 +241,7 @@ declaration-specifiers ::= storage-class-specifier, [declaration-specifiers]
                 | type-qualifier, [declaration-specifiers]
                 | KW_INLINE, [declaration-specifiers];
 
-init-declarator-list ::= {init-declarator, KW_COMMA} * 1, init-declarator;
+init-declarator-list ::= init-declarator, { KW_COMMA, init-declarator };
 
 init-declarator ::= declarator ["=", initializer];
     
@@ -270,7 +271,7 @@ struct-declarator ::= declarator | [declarator], KW_COLON constant-expression;
 enum-specifier ::= KW_ENUM, [identifier], "{", enumerator-list, [KW_COMMA], "}"
                 | KW_ENUM, [identifier];
 
-enumerator-list ::= {enumerator, KW_COMMA}, enumerator;
+enumerator-list ::= enumerator, {KW_COMMA, enumerator};
 
 enumerator ::= enumeration-constant, ["=", constant-expression];
     
@@ -369,7 +370,7 @@ if-group ::= "#", "if", constant-expression, new-line [group]
         | "#", "ifdef", indentifier, new-line, [group]
         | "#", "ifndef", identifier, new-line, [group];
 
-elif-groups ::= {elif-group};
+elif-groups ::= { elif-group };
 
 elif-group ::= "#", "elif", constant-expression, new-line, [group];
 
@@ -393,5 +394,5 @@ non-directive ::= pp-tokens, new-line;
 
 lparen ::=  "(" <but without preceeding whitespace>
 
-replacement-list ::= [preprocessing-token {preprocessing-token}];
+replacement-list ::= [preprocessing-token { preprocessing-token }];
 
