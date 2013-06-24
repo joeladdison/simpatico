@@ -290,16 +290,16 @@ direct-declarator ::= identifier
 
 pointer ::= "*", [type-qualifier-list] | "*", [type-qualifier-list], pointer;
 
-type-qualifier-list ::= [type-qualfifier-list], type-qualifier;
+type-qualifier-list ::= {type-qualifier}, type-qualifier;
 
 parameter-type-list ::= parameter-list, [KW_COMMA, "..."];
 
-parameter-list ::= [parameter-list KW_COMMA], parameter-declaration;
+parameter-list ::= {parameter-declaration, KW_COMMA}, parameter-declaration;
     
 parameter-declaration ::= declaration-specifiers, declarator
             | declaration-specifiers, [abstract-declarator];
 
-identifier-list ::= [identifier-list, KW_COMMA], identifier;
+identifier-list ::= {identifier, KW_COMMA}, identifier;
 
 type-name ::= specifier-qualifier-list, [abstract-declarator];
 

@@ -19,10 +19,51 @@ def d(elements):
     if DEBUG:
         print " ".join([str(x) for x in elements])
 
-DEFAULT_TYPES = ['void', 'char', 'short', 'int', 'long',
-                 'float', 'double', 'signed', 'unsigned']
-IGNORABLE_KEYWORDS = ['auto', 'register', 'static',
-                      'const', 'volatile']
+TYPE_SPECIFIERS = ['void', 'char', 'short', 'int', 'long', 'float', 'double',
+                 'signed', 'unsigned', '_Bool', '_Imaginary', '_Complex']
+STRUCT_UNION = ["struct", "union"]
+STORAGE_CLASS = ["register", "static", "extern", "auto", "typedef"]
+TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
+class Terminals(object):
+    KW_AUTO = "auto"
+    KW_BREAK = "break"
+    KW_CASE = "case"
+    KW_CHAR = "char"
+    KW_CONST = "const"
+    KW_CONTINUE = "continue"
+    KW_DEFAULT = "default"
+    KW_DO = "do"
+    KW_DOUBLE = "double"
+    KW_ELSE = "else"
+    KW_ENUM = "enum"
+    KW_EXTERN = "extern"
+    KW_FLOAT = "float"
+    KW_FOR = "for"
+    KW_GOTO = "goto"
+    KW_IF = "if"
+    KW_INLINE = "inline"
+    KW_INT = "int"
+    KW_LONG = "long"
+    KW_REGISTER = "register"
+    KW_RESTRICT = "restrict"
+    KW_RETURN = "return"
+    KW_SHORT = "short"
+    KW_SIGNED = "signed"
+    KW_SIZEOF = "sizeof"
+    KW_STATIC = "static"
+    KW_STRUCT = "struct"
+    KW_SWITCH = "switch"
+    KW_TYPEDEF = "typedef"
+    KW_UNION = "union"
+    KW_UNSIGNED = "unsigned"
+    KW_VOID = "void"
+    KW_VOLATILE = "volatile"
+    KW_WHILE = "while"
+    KW_BOOL = "_Bool"
+    KW_COMPLEX = "_Complex"
+    KW_IMAGINARY = "_Imaginary"
+
+
 KNOWN_VARIABLES = ['errno', 'stderr', 'stdout']
 BINARY_OPERATORS = ["+", "/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
 UNARY_OPERATORS = ["--", "++", "!"]
@@ -43,25 +84,6 @@ class Type(object):
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
         LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE
     ) = range(45)
-
-class Fragment(object):
-    """ This is where we start getting funky with building the structure of
-    the code. """
-    def __init__(self, start_word):
-        self.start_word = start_word
-
-class Block(Fragment):
-    """ For code blocks (e.g. { stuff }). """
-    def __init__(self, start_word):
-        Fragment.__init__(self, start_word)
-        self.header = []
-        self.tokens = []
-
-class Statement(Fragment):
-    """ Statements (i.e. stuff;) """
-    def __init__(self, start_word):
-        Fragment.__init__(self, start_word)
-        self.tokens = []
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -103,9 +125,9 @@ class Word(object):
             self.type = Type.INCLUDE
         elif line == "#":
             self.type = Type.PRECOMPILER
-        elif line == "if":
+        elif line == Terminals.KW_IF:
             self.type = Type.IF
-        elif line == "else":
+        elif line == Terminals.KW_ELSE:
             self.type = Type.ELSE
         elif line == "\t":
             self.type = Type.COMMENT
@@ -141,35 +163,35 @@ class Word(object):
             self.type = Type.STAR
         elif line == "&":
             self.type = Type.AMPERSAND
-        elif line in DEFAULT_TYPES:
+        elif line in TYPE_SPECIFIERS:
             self.type = Type.TYPE
         elif line in ["--", "++"]:
             self.type = Type.CREMENT
-        elif line in IGNORABLE_KEYWORDS:
-            self.type = Type.IGNORE
-        elif line == "extern":
+        elif line == Terminals.KW_EXTERN:
             self.type = Type.KW_EXTERN
-        elif line == "break":
-            self.type = Type.RETURN
-        elif line == "for":
+        elif line == Terminals.KW_BREAK:
+            self.type = Type.BREAK
+        elif line == Terminals.KW_FOR:
             self.type = Type.FOR
-        elif line == "do":
+        elif line == Terminals.KW_DO:
             self.type = Type.DO
-        elif line == "while":
+        elif line == Terminals.KW_WHILE:
             self.type = Type.WHILE
-        elif line == "switch":
+        elif line == Terminals.KW_SWITCH:
             self.type = Type.SWITCH
-        elif line == "case":
+        elif line == Terminals.KW_CASE:
             self.type = Type.CASE
-        elif line == "default":
+        elif line == Terminals.KW_DEFAULT:
             self.type = Type.DEFAULT
-        elif line in ["struct", "union"]:
+        elif line in STRUCT_UNION:
             self.type = Type.STRUCT
-        elif line == "continue":
+        elif line == Terminals.KW_CONTINUE:
             self.type = Type.CONTINUE
         elif line == "typedef":
             self.type = Type.TYPEDEF
-        elif line == "return":
+        elif line in TYPE_QUALIFIERS + STORAGE_CLASS:
+            self.type = Type.IGNORE        
+        elif line == Terminals.KW_RETURN:
             self.type = Type.RETURN
         elif line[0] == '"' or line[0] == "'" or line.isdigit():
             self.type = Type.CONSTANT
@@ -179,7 +201,7 @@ class Word(object):
             self.type = Type.RSQUARE
         elif line == "\\":
             self.type = Type.LINE_CONT
-        elif line == "sizeof":
+        elif line == Terminals.KW_SIZEOF:
             self.type = Type.SIZEOF
         elif line == "__attribute__":
             self.type = Type.ATTRIBUTE
@@ -490,6 +512,7 @@ class Styler(object):
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
+        d(["matching", old])
         # ensure we're matching what's expected
         if req_type != Type.ANY and old.type != req_type:
             print "match fail:", self.current_token, old.type, req_type
@@ -554,14 +577,15 @@ class Styler(object):
             token.whitespace_checked += 1
             return
         token.whitespace_checked += 1
-        if one_or_zero and expected <= 1:
-            if token.get_spacing_left() > 1:
-                d(["whitespace \033[1m error \033[0m:", expected, token,
-                        self.depth])
+        if one_or_zero:
+            if expected <= 1 and token.get_spacing_left() > 1:
+                d(["whitespace \033[1merror\033[0m:", "expected", "1 or 0",
+                        "with token", token, "but had",
+                        token.get_spacing_left()])
                 self.errors.whitespace(token, expected)
         elif token.get_spacing_left() != expected:
-            d(["whitespace \033[1merror\033[0m:", expected, token,
-                    self.depth])
+            d(["whitespace \033[1merror\033[0m:", "expected", expected,
+                    "with token", token, "but had", token.get_spacing_left()])
             self.errors.whitespace(token, expected)
         if self.line_continuation:
             self.line_continuation = False
@@ -869,7 +893,7 @@ class Styler(object):
         #size of type
         if self.current_token.type == Type.LPAREN:
             self.check_whitespace(0)
-            self.match(Type.TYPE)
+            self.match(Type.LPAREN)
             while self.current_token.type == Type.TYPE:
                 self.check_whitespace(1)
                 self.match(Type.TYPE)
@@ -884,7 +908,6 @@ class Styler(object):
         #size of variable
         elif self.current_token.type == Type.UNKNOWN:
             self.check_whitespace(1)
-            self.match(Type.UNKNOWN)
         else:
             print "check_sizeof(): unexpected token:", self.current_token
         
@@ -918,26 +941,20 @@ class Styler(object):
             self.match(Type.RPAREN)
             d(["D: check_exp(): exited", self.current_token])
             return
-        #it could be sizeof, which is not actually an expression so much
-        elif self.current_token.type == Type.SIZEOF:
-            self.check_sizeof()
-            #e.g. a = sizeof(stuff); or b = sizeof stuff
-            if self.current_token.type == Type.SEMICOLON:
-                self.match(Type.ANY)
-                return
-            #sizeof(stuff) * other_stuff
-            elif self.current_token.type in [Type.STAR, Type.BINARY_OP,
-                    Type.MINUS]:
-                self.check_whitespace(1, ALLOW_ZERO)
-                self.match(Type.ANY)
-                self.check_whitespace(1, ALLOW_ZERO)
-            #we return now to your previous scheduled expression evaluation
         elif self.current_token.type not in [Type.UNKNOWN, Type.CONSTANT]:
             d(["D: check_exp(): unexpected token:", self.current_token])
 
         #grab a value of some form
-        while self.current_token.type in [Type.UNKNOWN, Type.CONSTANT]:
-            self.match() #the value
+        while self.current_token.type in [Type.UNKNOWN, Type.CONSTANT,
+                Type.SIZEOF]:
+            if self.current_token.type == Type.SIZEOF:
+                self.match(Type.SIZEOF)
+                if self.current_token.type == Type.LPAREN:
+                    self.check_sizeof()
+                else:
+                    continue
+            else:
+                self.match() #the value
             #check if it was a function, check if it's being called
             #possibly also a indexing operation with equivalent contents
             if self.current_token.type in [Type.LPAREN, Type.LSQUARE]:
@@ -1036,7 +1053,6 @@ class Styler(object):
                     else:
                         self.should_have_block() #else already
             elif self.current_token.type == Type.UNKNOWN:
-                self.match(Type.UNKNOWN)
                 self.check_statement()
             elif self.current_token.type == Type.LBRACE:
                 self.match(Type.LBRACE)
@@ -1078,7 +1094,7 @@ class Styler(object):
                 self.current_token = self.tokens[self.position]
             self.match()
             if first.type == Type.UNKNOWN:
-                if first.line.upper() != first.line:
+                if "".join(first.line).upper() != "".join(first.line):
                     self.errors.naming(first, Errors.DEFINE)
                 if len(tokens) > 1:
 #TODO
@@ -1138,20 +1154,24 @@ class Styler(object):
             self.check_naming(self.previous_token(), Errors.FUNCTION)
             self.check_whitespace(0)
             self.match(Type.LPAREN)
-            if self.current_token.type != Type.RPAREN:
-                self.check_whitespace(0)
-                print "consuming without checking:", self.current_token
-                self.match()
 #TODO need to chomp some args here and test naming
             #but for now
-            while self.current_token.type != Type.RPAREN:
-                if self.current_token.type == Type.COMMA:
+            depth = 1
+            while depth:
+                if self.current_token.type == Type.LPAREN:
+                    depth += 1
+                    self.match(Type.LPAREN)
+                    self.check_whitespace(0)
+                    continue
+                elif self.current_token.type == Type.RPAREN:
+                    depth -= 1
+                    self.check_whitespace(0)
+                elif self.current_token.type == Type.COMMA:
                     self.check_whitespace(0)
                 else:
                     self.check_whitespace(1)
                 self.match() #args
-            self.check_whitespace(0)
-            self.match(Type.RPAREN)
+
             #was it just a prototype
             if self.current_token.type == Type.SEMICOLON:
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
@@ -1210,7 +1230,7 @@ class Styler(object):
                 self.check_whitespace(1)
                 self.check_expression() #match out the expression
                 continue
-        assert self.current_token.type == Type.SEMICOLON
+        self.match(Type.SEMICOLON)
         d(["D:check_declaration() exited", self.current_token])
             
 if __name__ == '__main__':
