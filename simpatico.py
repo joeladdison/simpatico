@@ -14,6 +14,7 @@ LINE_CONTINUATION_SIZE = 8
 ALLOW_ZERO = True
 (NO_NEWLINE, MAY_NEWLINE, MUST_NEWLINE) = range(3)
 IS_TYPEDEF = True
+MISSING_TYPE = False
 
 def d(elements):
     if DEBUG:
@@ -574,8 +575,6 @@ class Styler(object):
                 in [Type.NEWLINE, Type.LINE_CONT, Type.COMMENT]:
             if old.type == Type.RBRACE:
                 self.errors.braces(old, Errors.RUNON)
-            elif old.type != Type.SEMICOLON:
-                self.line_continuation = True
         # check for missing post-token newlines
         elif post_newline == MUST_NEWLINE \
                 and self.current_type() not in [Type.NEWLINE,
@@ -612,10 +611,12 @@ class Styler(object):
                         "with token", token, "but had",
                         token.get_spacing_left()])
                 self.errors.whitespace(token, expected)
+                assert False
         elif token.get_spacing_left() != expected:
             d(["whitespace \033[1merror\033[0m:", "expected", expected,
                     "with token", token, "but had", token.get_spacing_left()])
             self.errors.whitespace(token, expected)
+            assert False
         if self.line_continuation:
             self.line_continuation = False
 
@@ -674,13 +675,40 @@ class Styler(object):
         while self.current_type() in [Type.STRUCT, Type.TYPE,
                 Type.IGNORE]:
             self.check_whitespace(1)
-        if self.current_type() == Type.STAR:
+            self.match()
+        # check if function pointer
+        if self.current_type() == Type.LPAREN:
+            self.check_whitespace(1)
+            self.match(Type.LPAREN) #(
+            self.check_whitespace(0)
+            #allow for pointers to pointers
+            while self.current_type() == Type.STAR:
+                self.match(Type.STAR) #(*
+                self.check_whitespace(0)
+            #allow for non-declaration
+            if self.current_type() == Type.UNKNOWN:
+                self.match(Type.UNKNOWN) #(id
+                self.check_whitespace(0)
+            self.match(Type.LPAREN) #(id(
+            self.check_whitespace(0)
+            if self.current_type() != Type.RPAREN:
+                self.match_type() #(id(types
+                while self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
+                    self.match(Type.COMMA)
+                    self.check_whitespace(1)
+                    self.match_type() #(id(types,types
+            self.match(Type.RPAREN) #(id(types,types)
+            self.check_whitespace(0)
+            self.match(Type.RPAREN) #(id(types,types))
+        # strip the pointers if
+        elif self.current_type() == Type.STAR:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
             while self.current_type() == Type.STAR:
                 self.check_whitespace(0)
                 self.match(Type.STAR)
-        d(["D: match_type(): entered", self.current_token])
+        d(["D: match_type(): exited", self.current_token])
 
     def process_globals(self, filename):
         """ There's an assumption here that the code compiles to start with.
@@ -688,8 +716,8 @@ class Styler(object):
         context (compiler directives, prototypes, declarations, definitions).
         """
         while True:
-            if self.current_type() != Type.SEMICOLON:
-                self.check_whitespace(0)
+            d(["D: global space: ", self.current_token])
+            self.check_whitespace(0)
             #check for compiler directives that aren't #define
             if self.current_type() == Type.INCLUDE:
                 self.match(Type.INCLUDE)
@@ -731,8 +759,10 @@ class Styler(object):
                     self.match()
                     self.consume_line()
             #declaration
-            elif self.current_type() in [Type.TYPE, Type.UNKNOWN]:
+            elif self.current_type() == Type.TYPE:
                 self.check_declaration()
+            elif self.current_type() == Type.UNKNOWN:
+                self.check_declaration(MISSING_TYPE)
             #function returning a function pointer, since it's complicated
             elif self.current_type() == Type.LPAREN:
                 d(["dealing with a function prototype return value"])
@@ -770,6 +800,7 @@ class Styler(object):
                 self.match(Type.RPAREN) #(*indentifier(...))(...)
                 d(["finished with function prototype return value"])
                 self.check_block()
+                self.match(Type.RBRACE)
             #type qualifiers
             elif self.current_type() == Type.IGNORE:
                 self.match()
@@ -853,9 +884,10 @@ class Styler(object):
                     token.type = Type.TYPE
             self.match(Type.TYPE)
         else:
-            while self.current_type() in [Type.TYPE, Type.UNKNOWN]:
-                self.check_whitespace(1)
-                self.match() # type
+            self.check_whitespace(1)
+            self.match_type()
+            identifier = self.current_token
+            self.match(Type.UNKNOWN)
         self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["D: check_typedef() exited", self.current_token])
 
@@ -1000,16 +1032,7 @@ class Styler(object):
         if self.current_type() == Type.LPAREN:
             self.check_whitespace(0)
             self.match(Type.LPAREN)
-            while self.current_type() == Type.TYPE:
-                self.check_whitespace(1)
-                self.match(Type.TYPE)
-            if self.current_type() == Type.STAR:
-                self.check_whitespace(1, ALLOW_ZERO)
-                self.match(Type.STAR)
-            while self.current_type() == Type.STAR:
-                self.check_whitespace(0)
-                self.match(Type.STAR)
-            self.check_whitespace(0)
+            self.match_type()
             self.match(Type.RPAREN)
         #size of variable
         elif self.current_type() == Type.UNKNOWN:
@@ -1108,13 +1131,14 @@ class Styler(object):
     def check_block(self):
         d(["\nD: check_block(): entered", self.current_token])
         self.depth += 1
+        if self.current_type() == Type.LBRACE:
+            self.check_whitespace(1)
+            self.match()
         #block ends if we hit the matching brace
         while self.current_type() != Type.RBRACE:
             d(["D:in block while: ", self.current_token])
-            self.check_whitespace(self.depth * INDENT_SIZE)
+            self.check_whitespace()
             if self.current_type() == Type.TYPE:
-                self.match(Type.TYPE)
-                self.check_whitespace(1)
                 self.check_declaration()
                 if self.current_type() == Type.SEMICOLON:
                     self.match(Type.SEMICOLON, MUST_NEWLINE)
@@ -1187,7 +1211,7 @@ class Styler(object):
                 print "check_block(): unexpected token:", self.current_token
                 self.match()
         self.depth -= 1
-        self.check_whitespace(self.depth * INDENT_SIZE)
+
         d(["D: check_block(): exited", self.current_token, "\n"])
 
     def check_define(self):
@@ -1267,17 +1291,17 @@ class Styler(object):
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         assert self.current_type() == Type.SEMICOLON
 
-    def check_declaration(self):
+    def check_declaration(self, match_types = True):
         d(["D:check_declaration() entered", self.current_token])
+        if match_types:
+            self.match_type()
+        else:
+            d(["D:skipping types"])
         array = False
-        name = []
+        name = self.current_token
         #if there hasn't been a terrible omission of a function return type
         if self.current_type() != Type.LPAREN:
             #skip all the potential types and modifiers
-            while self.current_type() != Type.UNKNOWN:
-                d(["D:decl: consuming:", self.current_token])
-                self.match() #type/modifier
-                self.check_whitespace(1)
             name = self.current_token
             self.match(Type.UNKNOWN)
         #is this a function?
@@ -1288,26 +1312,15 @@ class Styler(object):
             self.check_whitespace(0)
 #TODO need to chomp some args here and test naming
             #but for now
-            checked = True
-            depth = 1
-            while depth:
-                #takes care of function pointer args
-                if self.current_type() == Type.LPAREN:
-                    depth += 1
-                    self.match(Type.LPAREN)
-                    checked = False
-                    continue
-                elif self.current_type() == Type.RPAREN:
-                    depth -= 1
-                    if not checked:
-                        self.check_whitespace(0)
-                elif self.current_type() == Type.COMMA:
-                    if not checked:
-                        self.check_whitespace(0)
-                else:
-                    if not checked:
-                        self.check_whitespace(1)
-                self.match() #args
+            if self.current_type() != Type.RPAREN:
+                self.match_type() #type
+                if self.current_type() == Type.UNKNOWN:
+                    self.match(Type.UNKNOWN)
+                while self.current_type() == Type.COMMA:
+                    self.match(Type.COMMA)
+                    self.match_type()
+                    self.match(Type.UNKNOWN)
+            self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 start_line = self.current_token.line_number
                 self.check_whitespace(1)
