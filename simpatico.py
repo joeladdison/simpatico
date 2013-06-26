@@ -749,7 +749,11 @@ class Styler(object):
             self.match(Type.STRUCT)
             self.check_struct(IS_TYPEDEF)
             self.check_whitespace(1)
-            self.match(Type.UNKNOWN) # type
+            ident = self.current_token.line
+            for token in self.tokens:
+                if token.line == ident:
+                    token.type = Type.TYPE
+            self.match(Type.TYPE) # type
         else:
             while self.current_token.type in [Type.TYPE, Type.UNKNOWN]:
                 self.check_whitespace(1)
@@ -854,7 +858,7 @@ class Styler(object):
         if self.current_token.type == Type.TYPE:
             self.check_declaration()
         elif self.current_token.type == Type.UNKNOWN:
-            self.match(Type.UNKNOWN)
+            self.check_expression()
         if self.current_token.type == Type.ASSIGNMENT:
             self.check_whitespace(1)
             self.match(Type.ASSIGNMENT)
@@ -931,8 +935,14 @@ class Styler(object):
         elif self.current_token.type == Type.LPAREN:
             self.match(Type.LPAREN)
             self.check_whitespace(0)
-            #match a whole new expression
-            self.check_expression()
+            #if it's not a typecast
+            if self.current_token.type == Type.TYPE:
+                while self.current_token.type in [Type.TYPE, Type.STAR]:
+                    self.match()
+                self.match(Type.RPAREN)
+            else:    
+                #match a whole new expression
+                self.check_expression()
         elif self.current_token.type == Type.NOT:
             self.match(Type.NOT)
             self.check_whitespace(0)
