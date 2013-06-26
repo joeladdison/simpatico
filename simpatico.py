@@ -602,7 +602,6 @@ class Styler(object):
         if token.whitespace_checked and DEBUG:
             print "whitespace check duplicated:", token
             token.whitespace_checked += 1
-            assert 1 == 0
             return
         token.whitespace_checked += 1
         if one_or_zero:
@@ -611,12 +610,10 @@ class Styler(object):
                         "with token", token, "but had",
                         token.get_spacing_left()])
                 self.errors.whitespace(token, expected)
-                assert False
         elif token.get_spacing_left() != expected:
             d(["whitespace \033[1merror\033[0m:", "expected", expected,
                     "with token", token, "but had", token.get_spacing_left()])
             self.errors.whitespace(token, expected)
-            assert False
         if self.line_continuation:
             self.line_continuation = False
 
@@ -1295,6 +1292,7 @@ class Styler(object):
         d(["D:check_declaration() entered", self.current_token])
         if match_types:
             self.match_type()
+            self.check_whitespace(1)
         else:
             d(["D:skipping types"])
         array = False
