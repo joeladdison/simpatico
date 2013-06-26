@@ -769,6 +769,7 @@ class Styler(object):
                         self.match_type()
                 self.match(Type.RPAREN) #(*indentifier(...))(...)
                 d(["finished with function prototype return value"])
+                self.check_block()
             #type qualifiers
             elif self.current_type() == Type.IGNORE:
                 self.match()
