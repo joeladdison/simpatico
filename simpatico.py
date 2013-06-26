@@ -83,8 +83,8 @@ class Type(object):
         AMPERSAND, TYPE, CREMENT, IGNORE, KW_EXTERN, BREAK, FOR, SWITCH, CASE,
         STRUCT, CONTINUE, TYPEDEF, RETURN, UNKNOWN, CONSTANT, WHILE, DO,
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
-        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE
-    ) = range(45)
+        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH
+    ) = range(46)
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -128,12 +128,14 @@ class Word(object):
         self.line = "".join(self.line)
         line = self.line
         #prepare thyself for many, many elifs
-        if line.lower() == "#define":
+        if line.lower() == "define":
             self.type = Type.DEFINE
-        elif line in ["#ifdef", "#ifndef", "#endif", "#undef"]:
+        elif line in ["ifdef", "ifndef", "endif", "undef"]:
             self.type = Type.PRECOMPILER
-        elif line == "#include":
+        elif line == "include":
             self.type = Type.INCLUDE
+        elif line == "#":
+            self.type = Type.HASH
         elif line == Terminals.KW_IF:
             self.type = Type.IF
         elif line == Terminals.KW_ELSE:
@@ -246,7 +248,7 @@ class Tokeniser(object):
         self.in_singleline_comment = False
         self.deal_breakers = [' ', '.', '-', '+', '/', '*', '>', '<', '&',
                 '|', '!', '~', '%', '^', '(', ')', '{', '}', ';', ',', ':',
-                '?', '[', ']']
+                '?', '[', ']', '#']
         self.current_word = Word()
         self.space_left = 0
         self.current_word_start = 1
@@ -729,45 +731,48 @@ class Styler(object):
             d(["D: global space: ", self.current_token])
             self.check_whitespace(0)
             #check for compiler directives that aren't #define
-            if self.current_type() == Type.INCLUDE:
-                self.match(Type.INCLUDE)
-                include_std = False
-                include_name = []
-                #include "stuff.h"
-                if self.current_type() == Type.CONSTANT:
-                    self.check_whitespace(1)
-                    include_name.append(self.current_token.line)
-                    self.match(Type.CONSTANT)
-                #include <std_stuff.h>
-                else:
-                    include_std = True
-                    self.check_whitespace(1)
-                    self.match() #<
-                    i = 0
-                    while self.current_token.line != ">":
-                        include_name.append(self.current_token.line)
-                        self.check_whitespace(0)
-                        self.match()
-                    self.check_whitespace(0)
-                    self.match() #>
-                include_name = "".join(include_name)
-                d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
-#TODO process the included file for defines and so on
-            #define
-            elif self.current_type() == Type.DEFINE:
-                self.match()
-                self.check_define()
-            #precompiler split by space
-            elif self.current_type() == Type.PRECOMPILER:
-                self.match(Type.PRECOMPILER)
+            if self.current_type() == Type.HASH:
+                self.match(Type.HASH)
                 self.check_whitespace(0)
-                print self.current_token
-                if self.current_token.line == "define":
+                if self.current_type() == Type.INCLUDE:
+                    self.match(Type.INCLUDE)
+                    include_std = False
+                    include_name = []
+                    #include "stuff.h"
+                    if self.current_type() == Type.CONSTANT:
+                        self.check_whitespace(1)
+                        include_name.append(self.current_token.line)
+                        self.match(Type.CONSTANT)
+                    #include <std_stuff.h>
+                    else:
+                        include_std = True
+                        self.check_whitespace(1)
+                        self.match() #<
+                        i = 0
+                        while self.current_token.line != ">":
+                            include_name.append(self.current_token.line)
+                            self.check_whitespace(0)
+                            self.match()
+                        self.check_whitespace(0)
+                        self.match() #>
+                    include_name = "".join(include_name)
+                    d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
+#TODO process the included file for defines and so on
+                #define
+                elif self.current_type() == Type.DEFINE:
                     self.match()
                     self.check_define()
-                else:
-                    self.match()
-                    self.consume_line()
+                #precompiler split by space
+                elif self.current_type() == Type.PRECOMPILER:
+                    self.match(Type.PRECOMPILER)
+                    self.check_whitespace(0)
+                    print self.current_token
+                    if self.current_token.line == "define":
+                        self.match()
+                        self.check_define()
+                    else:
+                        self.match()
+                        self.consume_line()
             #declaration
             elif self.current_type() == Type.TYPE:
                 self.check_declaration()
