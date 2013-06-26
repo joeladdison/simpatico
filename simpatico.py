@@ -531,8 +531,11 @@ class Styler(object):
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
-        print old, old.inner_position
         if old.inner_tokens:
+            d(["matching", old])
+            if req_type != Type.ANY and old.get_type() != req_type:
+                print "match fail:", old.get_type(), req_type
+                assert old.get_type() == req_type
             if old.inner_position < len(old.inner_tokens) - 1:
                 old.inner_position += 1
                 old = old.inner_tokens[old.inner_position - 1]
@@ -543,7 +546,6 @@ class Styler(object):
                         Type.COMMENT, Type.LINE_CONT]:
                     self.position += 1
                     self.current_token = self.tokens[self.position]
-            d(["matching", old])
             return
 
         # ensure we're matching what's expected
@@ -812,7 +814,7 @@ class Styler(object):
                 d(["finished with function prototype return value"])
                 self.check_block()
                 self.check_whitespace()
-                self.match(Type.RBRACE)
+                self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             #type qualifiers
             elif self.current_type() == Type.IGNORE:
                 self.match()
@@ -912,16 +914,19 @@ class Styler(object):
         self.match(Type.LPAREN)
         self.check_whitespace(0)
         d(["D:checking for init", self.current_token])
-        self.check_statement(True) #for (thing;
+        if self.current_type() != Type.SEMICOLON:
+            self.check_statement(True) #for (thing;
+        else:
+            self.match(Type.SEMICOLON)
         d(["checking for conditional", self.current_token])
         self.check_whitespace(1)
         if self.current_type() != Type.SEMICOLON:
             self.check_expression() #for (thing; thing
         self.match(Type.SEMICOLON)
         self.check_whitespace(1)
-        if self.current_type() != Type.SEMICOLON:
+        if self.current_type() != Type.RPAREN:
             d(["checking for post-loop", self.current_token])
-            self.check_expression() #for (thing; thing; thing)
+            self.check_expression() #for (thing; thing; thing
         while self.current_type() == Type.COMMA:
             self.check_expression() #for (thing; thing; thing, ...)
         self.check_whitespace(0)
@@ -1222,7 +1227,7 @@ class Styler(object):
                 self.match(Type.LBRACE)
                 self.check_block()
                 self.check_whitespace()
-                self.match(Type.RBRACE)
+                self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             elif self.current_type() in [Type.CONSTANT, Type.SIZEOF]:
                 #legit, but stupid
                 self.check_expression()
