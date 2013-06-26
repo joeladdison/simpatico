@@ -531,27 +531,37 @@ class Styler(object):
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
-        if old.inner_tokens and old.inner_position < len(old.inner_tokens):
-            old.inner_position += 1
-            old = old.inner_tokens[old.inner_position - 1]
+        print old, old.inner_position
+        if old.inner_tokens:
+            if old.inner_position < len(old.inner_tokens) - 1:
+                old.inner_position += 1
+                old = old.inner_tokens[old.inner_position - 1]
+            else:
+                self.position += 1
+                self.current_token = self.tokens[self.position]
+                while self.current_token.get_type() in [Type.NEWLINE,
+                        Type.COMMENT, Type.LINE_CONT]:
+                    self.position += 1
+                    self.current_token = self.tokens[self.position]
             d(["matching", old])
             return
-        d(["matching", old])
-        
+
         # ensure we're matching what's expected
-        if req_type != Type.ANY and old.type != req_type:
-            print "match fail:", self.current_token, old.type, req_type
-            assert old.type == req_type
+        if req_type != Type.ANY and old.get_type() != req_type:
+            print "match fail:", self.current_token, old.get_type(), req_type
+            assert old.get_type() == req_type
        # do a whitespace check for semicolons
         if old.type == Type.SEMICOLON:
-            if self.previous_token().type == [Type.COMMENT, Type.NEWLINE]:
+            if self.previous_token().get_type() == \
+                    [Type.COMMENT, Type.NEWLINE]:
                 self.check_whitespace(self.depth * INDENT_SIZE)
             else:
                 self.check_whitespace(0)
         # check pre-token newlines if {}
         elif old.type in [Type.LBRACE, Type.RBRACE]:
             # previous was a newline but shouldn't have been
-            if self.previous_token().type in [Type.NEWLINE, Type.COMMENT]:
+            if self.previous_token().get_type() in [Type.NEWLINE,
+                    Type.COMMENT]:
                 if pre_newline == NO_NEWLINE:
                     err = Errors.IF
                     if self.peek().type == Type.ELSE:
@@ -695,6 +705,7 @@ class Styler(object):
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
                     self.match_type() #(id(types,types
+            self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types)
             self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types))
@@ -765,8 +776,10 @@ class Styler(object):
                 d(["dealing with a function prototype return value"])
                 #example is (*indentifier())(char *, int)
                 self.match(Type.LPAREN) #(
+                self.check_whitespace(0)
                 self.match(Type.STAR) #(*
                 self.check_naming(self.current_token, Errors.FUNCTION)
+                self.check_whitespace(1, ALLOW_ZERO)
                 self.match(Type.UNKNOWN) #(*indentifier
                 self.check_whitespace(0)
                 self.match(Type.LPAREN) #(*indentifier(
@@ -794,9 +807,11 @@ class Styler(object):
                         self.match(Type.COMMA)
                         self.check_whitespace(1)
                         self.match_type()
+                self.check_whitespace(0)
                 self.match(Type.RPAREN) #(*indentifier(...))(...)
                 d(["finished with function prototype return value"])
                 self.check_block()
+                self.check_whitespace()
                 self.match(Type.RBRACE)
             #type qualifiers
             elif self.current_type() == Type.IGNORE:
@@ -851,13 +866,16 @@ class Styler(object):
         self.check_whitespace(1)
         self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_block()
+        self.check_whitespace()
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         if self.current_type() == Type.ATTRIBUTE:
             #ruh roh
             #TODO better manual checking required
             print "manual checking of __attribute__ tag required on line", \
                     self.current_token.line_number
+            self.check_whitespace(1)
             self.match(Type.ATTRIBUTE)
+            self.check_whitespace(0)
             self.match(Type.LPAREN)
             depth = 1
             while depth != 0:
@@ -865,6 +883,7 @@ class Styler(object):
                     depth += 1
                 elif self.current_type() == Type.RPAREN:
                     depth -= 1
+                self.check_whitespace(1, ALLOW_ZERO)
                 self.match()
         d(["D: check_struct() exited", self.current_token])
 
@@ -905,6 +924,7 @@ class Styler(object):
             self.check_expression() #for (thing; thing; thing)
         while self.current_type() == Type.COMMA:
             self.check_expression() #for (thing; thing; thing, ...)
+        self.check_whitespace(0)
         self.match(Type.RPAREN)
         self.should_have_block()
         d(["D: check_for() exited", self.current_token])
@@ -912,8 +932,9 @@ class Styler(object):
     def should_have_block(self, is_chained = False):
         if self.current_type() == Type.LBRACE:
             self.check_whitespace(1)
-            self.match(Type.LBRACE, MUST_NEWLINE) # {/n regardless
+            self.match(Type.LBRACE, MUST_NEWLINE) # {\n regardless
             self.check_block()
+            self.check_whitespace()
             if is_chained:
                 self.match(Type.RBRACE, NO_NEWLINE, MUST_NEWLINE) #\n}
             else:
@@ -1029,7 +1050,9 @@ class Styler(object):
         if self.current_type() == Type.LPAREN:
             self.check_whitespace(0)
             self.match(Type.LPAREN)
+            self.check_whitespace(0)
             self.match_type()
+            self.check_whitespace(0)
             self.match(Type.RPAREN)
         #size of variable
         elif self.current_type() == Type.UNKNOWN:
@@ -1060,11 +1083,13 @@ class Styler(object):
             #is this empty
             if self.current_type() == Type.RPAREN:
                 self.match(Type.RPAREN)
+                self.check_whitespace(1)
             #if it's not a typecast
             elif self.current_type() == Type.TYPE:
-                while self.current_type() in [Type.TYPE, Type.STAR]:
-                    self.match()
+                self.match_type()
+                self.check_whitespace(0)
                 self.match(Type.RPAREN)
+                self.check_whitespace(1)
             #match a whole new expression
             else:
                 self.check_expression()
@@ -1085,10 +1110,7 @@ class Styler(object):
                 Type.SIZEOF]:
             if self.current_type() == Type.SIZEOF:
                 self.match(Type.SIZEOF)
-                if self.current_type() == Type.LPAREN:
-                    self.check_sizeof()
-                else:
-                    continue
+                self.check_sizeof()
             else:
                 self.match() #the value
             #get rid of post operators if they're there
@@ -1199,6 +1221,7 @@ class Styler(object):
             elif self.current_type() == Type.LBRACE:
                 self.match(Type.LBRACE)
                 self.check_block()
+                self.check_whitespace()
                 self.match(Type.RBRACE)
             elif self.current_type() in [Type.CONSTANT, Type.SIZEOF]:
                 #legit, but stupid
@@ -1226,6 +1249,7 @@ class Styler(object):
             while self.current_type() != Type.NEWLINE:
                 self.position += 1
                 self.current_token = self.tokens[self.position]
+                self.check_whitespace(1, ALLOW_ZERO)
             self.position += 1
             self.current_token = self.tokens[self.position]
         #just a plain identifier swap
@@ -1237,6 +1261,7 @@ class Styler(object):
                 tokens.append(self.current_token)
                 self.position += 1
                 self.current_token = self.tokens[self.position]
+                self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             if first.type == Type.UNKNOWN:
                 if "".join(first.line).upper() != "".join(first.line):
@@ -1306,6 +1331,7 @@ class Styler(object):
         if self.current_type() == Type.LPAREN:
             d(["D:decl is a func", self.previous_token()])
             self.check_naming(name, Errors.FUNCTION)
+            self.check_whitespace(0)
             self.match(Type.LPAREN)
             self.check_whitespace(0)
 #TODO need to chomp some args here and test naming
@@ -1313,17 +1339,23 @@ class Styler(object):
             if self.current_type() != Type.RPAREN:
                 self.match_type() #type
                 if self.current_type() == Type.UNKNOWN:
+                    self.check_whitespace(1, ALLOW_ZERO)
                     self.match(Type.UNKNOWN)
                 while self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
                     self.match(Type.COMMA)
+                    self.check_whitespace(1)
                     self.match_type()
+                    self.check_whitespace(1)
                     self.match(Type.UNKNOWN)
+            self.check_whitespace(0)
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 start_line = self.current_token.line_number
                 self.check_whitespace(1)
                 self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
                 self.check_block()
+                self.check_whitespace()
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
                 func_length = self.current_token.line_number - start_line
                 if func_length >= 50:
