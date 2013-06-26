@@ -882,7 +882,7 @@ class Styler(object):
                     self.current_token.line_number
             self.check_whitespace(1)
             self.match(Type.ATTRIBUTE)
-            self.check_whitespace(0)
+            self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.LPAREN)
             depth = 1
             while depth != 0:
@@ -1184,6 +1184,9 @@ class Styler(object):
                     self.check_whitespace(1)
                     self.check_expression()
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
+            elif self.current_type() == Type.BREAK:
+                self.match(Type.BREAK)
+                self.match(Type.SEMICOLON)
             elif self.current_type() == Type.CREMENT:
                 self.match(Type.CREMENT)
                 self.check_whitespace(0)
@@ -1327,7 +1330,9 @@ class Styler(object):
         d(["D:check_declaration() entered", self.current_token])
         if match_types:
             self.match_type()
-            self.check_whitespace(1)
+            #ALLOW_ZERO here because if it's not a pointer, zero spaces will
+            #actually break C anyway
+            self.check_whitespace(1, ALLOW_ZERO)
         else:
             d(["D:skipping types"])
         array = False
@@ -1356,13 +1361,16 @@ class Styler(object):
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
                     self.match_type()
-                    self.check_whitespace(1)
+                    self.check_whitespace(1, ALLOW_ZERO) #pointers again
                     self.match(Type.UNKNOWN)
             self.check_whitespace(0)
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 start_line = self.current_token.line_number
-                self.check_whitespace(1)
+                if self.previous_token().get_type() == Type.NEWLINE:
+                    self.check_whitespace(0)
+                else:
+                    self.check_whitespace(1)
                 self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
