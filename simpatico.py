@@ -532,8 +532,8 @@ class Styler(object):
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
+        d(["matching", old])
         if old.inner_tokens:
-            d(["matching", old])
             if req_type != Type.ANY and old.get_type() != req_type:
                 print "match fail:", old.get_type(), req_type
                 assert old.get_type() == req_type
@@ -737,47 +737,7 @@ class Styler(object):
             self.check_whitespace(0)
             #check for compiler directives that aren't #define
             if self.current_type() == Type.HASH:
-                self.match(Type.HASH)
-                self.check_whitespace(0)
-                if self.current_type() == Type.INCLUDE:
-                    self.match(Type.INCLUDE)
-                    include_std = False
-                    include_name = []
-                    #include "stuff.h"
-                    if self.current_type() == Type.CONSTANT:
-                        self.check_whitespace(1)
-                        include_name.append(self.current_token.line)
-                        self.match(Type.CONSTANT, MUST_NEWLINE)
-                    #include <std_stuff.h>
-                    else:
-                        include_std = True
-                        self.check_whitespace(1)
-                        self.match() #<
-                        while self.current_token.line != ">":
-                            include_name.append(self.current_token.line)
-                            self.check_whitespace(0)
-                            self.match()
-                        self.check_whitespace(0)
-                        self.match(Type.ANY, MUST_NEWLINE) #>
-                    include_name = "".join(include_name)
-                    d(["D: INCLUDE:", "'"+include_name+"'", "std? =",
-                            include_std])
-#TODO process the included file for defines and so on
-                #define
-                elif self.current_type() == Type.DEFINE:
-                    self.match()
-                    self.check_define()
-                #precompiler split by space
-                elif self.current_type() == Type.PRECOMPILER:
-                    self.match(Type.PRECOMPILER)
-                    self.check_whitespace(0)
-                    print self.current_token
-                    if self.current_token.line == "define":
-                        self.match()
-                        self.check_define()
-                    else:
-                        self.match()
-                        self.consume_line()
+                self.check_precompile()
             #declaration
             elif self.current_type() == Type.TYPE:
                 self.check_declaration()
@@ -852,6 +812,43 @@ class Styler(object):
                 print "found an awkward type in global space:", \
                         self.current_token
                 self.match()
+
+    def check_precompile(self):
+        self.match(Type.HASH)
+        self.check_whitespace(0)
+        if self.current_type() == Type.INCLUDE:
+            self.match(Type.INCLUDE)
+            include_std = False
+            include_name = []
+            #include "stuff.h"
+            if self.current_type() == Type.CONSTANT:
+                self.check_whitespace(1)
+                include_name.append(self.current_token.line)
+                self.match(Type.CONSTANT, MUST_NEWLINE)
+            #include <std_stuff.h>
+            else:
+                include_std = True
+                self.check_whitespace(1)
+                self.match() #<
+                while self.current_token.line != ">":
+                    include_name.append(self.current_token.line)
+                    self.check_whitespace(0)
+                    self.match()
+                self.check_whitespace(0)
+                self.match(Type.ANY, MUST_NEWLINE) #>
+            include_name = "".join(include_name)
+            d(["D: INCLUDE:", "'"+include_name+"'", "std? =",
+                    include_std])
+#TODO process the included file for defines and so on
+        #define
+        elif self.current_type() == Type.DEFINE:
+            self.match()
+            self.check_define()
+#TODO undefine
+        elif self.current_type() == Type.PRECOMPILER:
+            self.match(Type.PRECOMPILER)
+            self.check_whitespace(1)
+            self.consume_line()
 
     def check_naming(self, token, name_type = Errors.VARIABLE):
         name = token.line
@@ -1029,26 +1026,30 @@ class Styler(object):
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.UNKNOWN:
             self.check_expression()
-        if self.current_type() == Type.ASSIGNMENT:
-            self.check_whitespace(1)
-            self.match(Type.ASSIGNMENT)
-            self.check_whitespace(1)
-            self.check_expression()
-            while self.current_type() == Type.COMMA:
-                self.check_whitespace(0)
-                self.match(Type.COMMA)
+            if self.current_type() == Type.ASSIGNMENT:
                 self.check_whitespace(1)
-#TODO: this will break, surely
-                assert self.current_type() == Type.UNKNOWN
-        elif self.current_type() == Type.LPAREN:
+                self.match(Type.ASSIGNMENT)
+                self.check_whitespace(1)
+                self.check_expression()
+        if self.current_type() == Type.LPAREN:
             self.match(Type.LPAREN)
-            #function call
+            self.check_whitespace(0)
             self.check_expression()
+            self.match(Type.RPAREN)
+            while self.current_type() in [Type.BINARY_OP, Type.ASSIGNMENT]:
+                if self.current_type() == Type.BINARY_OP:
+                    self.check_whitespace(1, ALLOW_ZERO)
+                    self.match(Type.BINARY_OP)
+                    self.check_whitespace(1, ALLOW_ZERO)
+                else:
+                    self.check_whitespace(1)
+                    self.match(Type.ASSIGNMENT)
+                    self.check_whitespace(1)
+                self.check_expression()
             while self.current_type() == Type.COMMA:
                 self.match(Type.COMMA)
                 self.check_whitespace(1)
                 self.check_expression()
-            self.match(Type.RPAREN)
         elif self.current_type() == Type.BREAK:
             self.match(Type.BREAK)
         elif self.current_type() == Type.RETURN:
@@ -1173,6 +1174,9 @@ class Styler(object):
         #block ends if we hit the matching brace
         while self.current_type() != Type.RBRACE:
             d(["D:in block while: ", self.current_token])
+            if self.current_type() == Type.HASH:
+                self.check_whitespace(0)
+                self.check_precompile()
             self.check_whitespace()
             if self.current_type() == Type.TYPE:
                 self.check_declaration()
@@ -1182,8 +1186,50 @@ class Styler(object):
                 self.match(Type.STRUCT)
                 self.check_whitespace(1)
                 self.match(Type.UNKNOWN) #the struct type
-                self.check_whitespace(1)
-                self.check_declaration()
+                first = True
+                while first or self.current_type() == Type.COMMA:
+                    if first:
+                        first = False
+                    else:
+                        self.match(Type.COMMA)
+                    if self.current_type() == Type.STAR: #them pointers again
+                        self.check_whitespace(1, ALLOW_ZERO)
+                        self.match(Type.STAR)
+                        while self.current_type() == Type.STAR:
+                            self.check_whitespace(0)
+                            self.match(Type.STAR)
+                        self.check_whitespace(1, ALLOW_ZERO)
+                
+                    self.check_whitespace(1)
+                    #TODO check var name
+                    self.match(Type.UNKNOWN)
+                    if self.current_type() == Type.ASSIGNMENT:
+                        self.check_whitespace(1)
+                        self.match(Type.ASSIGNMENT)
+                        self.check_whitespace(1)
+                        #awkward types of struct initialisers to deal with
+                        #if it's {.member = } style
+                        if self.current_type() == Type.LBRACE:
+                            d(["D: struct assignment {.x = ...} style"])
+                            self.match(Type.LBRACE)
+                            self.check_whitespace(0)
+                            while self.current_type() == Type.BINARY_OP: # .
+                                self.match(Type.BINARY_OP)
+                                d(["D: next member", self.current_token])
+                                self.check_whitespace(0)
+                                self.match(Type.UNKNOWN)
+                                self.check_whitespace(1)
+                                self.match(Type.ASSIGNMENT)
+                                self.check_whitespace(1)
+                                self.check_expression()
+                                self.check_whitespace(0)
+                                if self.current_type() == Type.COMMA:
+                                    self.match(Type.COMMA)
+                                    self.check_whitespace(1)
+                            self.match(Type.RBRACE, NO_NEWLINE)
+                        #otherwise it's just a normal expression
+                        else:
+                            self.check_expression()
                 self.match(Type.SEMICOLON)
             elif self.current_type() == Type.RETURN:
                 self.match(Type.RETURN)
@@ -1244,6 +1290,8 @@ class Styler(object):
                 self.check_block()
                 self.check_whitespace()
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
+            elif self.current_type() == Type.LPAREN:
+                self.check_statement()
             elif self.current_type() in [Type.CONSTANT, Type.SIZEOF]:
                 #legit, but stupid
                 self.check_expression()
@@ -1258,7 +1306,7 @@ class Styler(object):
 #TODO mark it to be manually checked, since it's haaard to parse
         self.check_whitespace(1)
         first = self.current_token
-        self.match() #the identifier
+        self.match() #the identifier (can't rely on it being Type.UNKNOWN)
         #is it a macro
         if self.current_type() == Type.LPAREN and \
                 self.current_token.get_spacing_left() == 0:
@@ -1343,11 +1391,7 @@ class Styler(object):
             d(["D:skipping types, match_types = False"])
         array = False
         name = self.current_token
-        #if there hasn't been a terrible omission of a function return type
-        if self.current_type() != Type.LPAREN:
-            #skip all the potential types and modifiers
-            name = self.current_token
-            self.match(Type.UNKNOWN)
+        self.match(Type.UNKNOWN)
         #is this a function?
         if self.current_type() == Type.LPAREN:
             d(["D:decl is a func", self.previous_token()])
@@ -1414,10 +1458,14 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.COMMA)
             self.check_whitespace(1)
-            #is it another identifier?
-            assert self.current_type() == Type.UNKNOWN
-            self.match() #identifier
-            #or was the previous identifier being initialised
+            #in case this is pointers to the type
+            while self.current_type() == Type.STAR:
+                self.match(Type.STAR)
+                if self.current_type() == Type.STAR:
+                    self.check_whitespace(0)
+                else:
+                    self.check_whitespace(1, ALLOW_ZERO)
+            self.match(Type.UNKNOWN) #identifier
             if self.current_type() == Type.ASSIGNMENT:
                 self.check_whitespace(1)
                 self.match(Type.ASSIGNMENT)
