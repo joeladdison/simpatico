@@ -254,7 +254,7 @@ class Tokeniser(object):
         self.current_word_start = 1
         #well that was fun, now we should do some real work
         f = open(filename, "r")
-        allllll_of_it = f.read().expandtabs(8)
+        allllll_of_it = str.replace(f.read().expandtabs(8), '\r', '')
         f.close()
         self.tokenise(allllll_of_it)
 
@@ -424,7 +424,6 @@ class Errors(object):
     def braces(self, token, error_type):
         self.total += 1
         msg = "WHOOPS"
-        assert False
         if error_type == Errors.IF:
             msg = ", if braces should look like: if (cond) {"
         elif error_type == Errors.ELSE:
@@ -472,9 +471,8 @@ class Errors(object):
         for i in range(len(counts)):
             if counts[i] > 5:
                 counts[i] = 5
-        return " ".join(["%d total errors found," % self.total,
-                "B:%d W:%d C:%d N:%d O:%d L:%d" % \
-                tuple(counts), "(capped at 5/type and 1/type/line)"])
+        return " ".join(["%d total errors found, capped at " % self.total,
+                "B:%d W:%d C:%d N:%d O:%d L:%d" % tuple(counts)])
 
 class Styler(object):
     MAX = False
@@ -598,7 +596,7 @@ class Styler(object):
                 and self.current_type() not in [Type.NEWLINE,
                 Type.LINE_CONT, Type.COMMENT]:
             if old.get_type() not in [Type.LBRACE, Type.RBRACE]:
-                pass #TODO for now
+                pass #TODO for now, might have to add semicolon checks
             elif self.tokens[self.position-2].get_type() == Type.ELSE:
                 self.errors.braces(self.previous_token(), Errors.ELSE)
             else:
