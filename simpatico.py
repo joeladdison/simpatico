@@ -217,7 +217,7 @@ class Word(object):
         elif line == "__attribute__":
             self._type = Type.ATTRIBUTE
         else:
-            d(["D: finalise() could not match type for", self])
+            #d(["D: finalise() could not match type for", self])
             self._type = Type.UNKNOWN #variables and externally defined types
 
     def __str__(self):
@@ -424,6 +424,7 @@ class Errors(object):
     def braces(self, token, error_type):
         self.total += 1
         msg = "WHOOPS"
+        assert False
         if error_type == Errors.IF:
             msg = ", if braces should look like: if (cond) {"
         elif error_type == Errors.ELSE:
@@ -589,13 +590,16 @@ class Styler(object):
                 in [Type.NEWLINE, Type.LINE_CONT, Type.COMMENT]:
             if old.get_type() == Type.RBRACE:
                 self.errors.braces(old, Errors.RUNON)
-            elif old.get_type() != Type.SEMICOLON:
+            
+            if old.get_type() not in [Type.SEMICOLON, Type.LBRACE]:
                 pass #self.line_continuation = True
         # check for missing post-token newlines
         elif post_newline == MUST_NEWLINE \
                 and self.current_type() not in [Type.NEWLINE,
                 Type.LINE_CONT, Type.COMMENT]:
-            if self.tokens[self.position-2].get_type() == Type.ELSE:
+            if old.get_type() not in [Type.LBRACE, Type.RBRACE]:
+                pass #TODO for now
+            elif self.tokens[self.position-2].get_type() == Type.ELSE:
                 self.errors.braces(self.previous_token(), Errors.ELSE)
             else:
                 self.errors.braces(self.previous_token(), Errors.RUNON)
@@ -758,7 +762,8 @@ class Styler(object):
                         self.check_whitespace(0)
                         self.match(Type.ANY, MUST_NEWLINE) #>
                     include_name = "".join(include_name)
-                    d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
+                    d(["D: INCLUDE:", "'"+include_name+"'", "std? =",
+                            include_std])
 #TODO process the included file for defines and so on
                 #define
                 elif self.current_type() == Type.DEFINE:
@@ -819,6 +824,11 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.RPAREN) #(*indentifier(...))(...)
                 d(["finished with function prototype return value"])
+                if self.previous_token() == Type.NEWLINE:
+                    self.check_whitespace()
+                else:
+                    self.check_whitespace(1)
+                self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
@@ -834,7 +844,7 @@ class Styler(object):
             elif self.current_type() == Type.STRUCT:
                 self.match()
                 self.check_struct()
-                self.match(Type.SEMICOLON)
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             #typedef
             elif self.current_type() == Type.TYPEDEF:
                 self.match()
@@ -946,7 +956,7 @@ class Styler(object):
             self.check_whitespace(1)
             self.match(Type.LBRACE, MUST_NEWLINE) # {\n regardless
             self.check_block()
-            self.check_whitespace()
+            self.check_whitespace() #based on current depth
             if is_chained:
                 self.match(Type.RBRACE, NO_NEWLINE, MUST_NEWLINE) #\n}
             else:
@@ -1018,7 +1028,7 @@ class Styler(object):
         d(["D: check_statement(): entered", self.current_token])
         if self.current_type() == Type.TYPE:
             self.check_declaration()
-            self.match(Type.SEMICOLON)
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.UNKNOWN:
             self.check_expression()
         if self.current_type() == Type.ASSIGNMENT:
@@ -1053,7 +1063,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.CREMENT)
         if not in_for:
-            self.match(Type.SEMICOLON, True)
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["D: check_statement(): exited", self.current_token])
 
     def check_sizeof(self):
@@ -1185,7 +1195,7 @@ class Styler(object):
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             elif self.current_type() == Type.BREAK:
                 self.match(Type.BREAK)
-                self.match(Type.SEMICOLON)
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             elif self.current_type() == Type.CREMENT:
                 self.match(Type.CREMENT)
                 self.check_whitespace(0)
@@ -1239,7 +1249,7 @@ class Styler(object):
             elif self.current_type() in [Type.CONSTANT, Type.SIZEOF]:
                 #legit, but stupid
                 self.check_expression()
-                self.match(Type.SEMICOLON)
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             else:
                 print "check_block(): unexpected token:", self.current_token
                 self.match()
@@ -1332,7 +1342,7 @@ class Styler(object):
             #actually break C anyway
             self.check_whitespace(1, ALLOW_ZERO)
         else:
-            d(["D:skipping types"])
+            d(["D:skipping types, match_types = False"])
         array = False
         name = self.current_token
         #if there hasn't been a terrible omission of a function return type
@@ -1366,7 +1376,7 @@ class Styler(object):
             if self.current_type() == Type.LBRACE:
                 start_line = self.current_token.line_number
                 if self.previous_token().get_type() == Type.NEWLINE:
-                    self.check_whitespace(0)
+                    self.check_whitespace()
                 else:
                     self.check_whitespace(1)
                 self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
@@ -1417,7 +1427,7 @@ class Styler(object):
                 self.check_expression() #match out the expression
                 continue
         if self.depth == 0: #since parent can't tell if it was func or not
-            self.match(Type.SEMICOLON)
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["D:check_declaration() exited", self.current_token])
             
 if __name__ == '__main__':
