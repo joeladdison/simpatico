@@ -93,16 +93,16 @@ class Word(object):
         self.line_number = -1
         self.line = []
         self.start = -1
-        self.type = Type.ERROR_TYPE
+        self._type = Type.ERROR_TYPE
         self.whitespace_checked = 0
         self.inner_tokens = []
         self.inner_position = 0
         
     def get_type(self):
         if self.inner_tokens:
-            return self.inner_tokens[self.inner_position].type
+            return self.inner_tokens[self.inner_position].get_type()
         else:
-            return self.type
+            return self._type
 
     def get_string(self):
         return "".join(self.line)
@@ -129,96 +129,96 @@ class Word(object):
         line = self.line
         #prepare thyself for many, many elifs
         if line.lower() == "define":
-            self.type = Type.DEFINE
+            self._type = Type.DEFINE
         elif line in ["ifdef", "ifndef", "endif", "undef"]:
-            self.type = Type.PRECOMPILER
+            self._type = Type.PRECOMPILER
         elif line == "include":
-            self.type = Type.INCLUDE
+            self._type = Type.INCLUDE
         elif line == "#":
-            self.type = Type.HASH
+            self._type = Type.HASH
         elif line == Terminals.KW_IF:
-            self.type = Type.IF
+            self._type = Type.IF
         elif line == Terminals.KW_ELSE:
-            self.type = Type.ELSE
+            self._type = Type.ELSE
         elif line == "\t":
-            self.type = Type.COMMENT
+            self._type = Type.COMMENT
         elif line == ";":
-            self.type = Type.SEMICOLON
+            self._type = Type.SEMICOLON
         elif line == "!":
-            self.type = Type.NOT
+            self._type = Type.NOT
         elif line in ASSIGNMENTS:
-            self.type = Type.ASSIGNMENT
+            self._type = Type.ASSIGNMENT
         elif line == "\n":
-            self.type = Type.NEWLINE
+            self._type = Type.NEWLINE
         elif line == ",":
-            self.type = Type.COMMA
+            self._type = Type.COMMA
         elif line == "{":
-            self.type = Type.LBRACE
+            self._type = Type.LBRACE
         elif line == "?":
-            self.type = Type.TERNARY
+            self._type = Type.TERNARY
         elif line == ":":
-            self.type = Type.COLON
+            self._type = Type.COLON
         elif line == "}":
-            self.type = Type.RBRACE
+            self._type = Type.RBRACE
         elif line == "(":
-            self.type = Type.LPAREN
+            self._type = Type.LPAREN
         elif line == ")":
-            self.type = Type.RPAREN
+            self._type = Type.RPAREN
         elif line == "-":
-            self.type = Type.MINUS
+            self._type = Type.MINUS
         elif line in BINARY_OPERATORS:
-            self.type = Type.BINARY_OP
+            self._type = Type.BINARY_OP
         elif line in LOGICAL_OPERATORS:
-            self.type = Type.LOGICAL_OP
+            self._type = Type.LOGICAL_OP
         elif line == "*":
-            self.type = Type.STAR
+            self._type = Type.STAR
         elif line == "&":
-            self.type = Type.AMPERSAND
+            self._type = Type.AMPERSAND
         elif line in TYPE_SPECIFIERS:
-            self.type = Type.TYPE
+            self._type = Type.TYPE
         elif line in ["--", "++"]:
-            self.type = Type.CREMENT
+            self._type = Type.CREMENT
         elif line == Terminals.KW_EXTERN:
-            self.type = Type.KW_EXTERN
+            self._type = Type.KW_EXTERN
         elif line == Terminals.KW_BREAK:
-            self.type = Type.BREAK
+            self._type = Type.BREAK
         elif line == Terminals.KW_FOR:
-            self.type = Type.FOR
+            self._type = Type.FOR
         elif line == Terminals.KW_DO:
-            self.type = Type.DO
+            self._type = Type.DO
         elif line == Terminals.KW_WHILE:
-            self.type = Type.WHILE
+            self._type = Type.WHILE
         elif line == Terminals.KW_SWITCH:
-            self.type = Type.SWITCH
+            self._type = Type.SWITCH
         elif line == Terminals.KW_CASE:
-            self.type = Type.CASE
+            self._type = Type.CASE
         elif line == Terminals.KW_DEFAULT:
-            self.type = Type.DEFAULT
+            self._type = Type.DEFAULT
         elif line in STRUCT_UNION:
-            self.type = Type.STRUCT
+            self._type = Type.STRUCT
         elif line == Terminals.KW_CONTINUE:
-            self.type = Type.CONTINUE
+            self._type = Type.CONTINUE
         elif line == "typedef":
-            self.type = Type.TYPEDEF
+            self._type = Type.TYPEDEF
         elif line in TYPE_QUALIFIERS + STORAGE_CLASS:
-            self.type = Type.IGNORE        
+            self._type = Type.IGNORE        
         elif line == Terminals.KW_RETURN:
-            self.type = Type.RETURN
+            self._type = Type.RETURN
         elif line[0] == '"' or line[0] == "'" or line.isdigit():
-            self.type = Type.CONSTANT
+            self._type = Type.CONSTANT
         elif line == "[":
-            self.type = Type.LSQUARE
+            self._type = Type.LSQUARE
         elif line == "]":
-            self.type = Type.RSQUARE
+            self._type = Type.RSQUARE
         elif line == "\\":
-            self.type = Type.LINE_CONT
+            self._type = Type.LINE_CONT
         elif line == Terminals.KW_SIZEOF:
-            self.type = Type.SIZEOF
+            self._type = Type.SIZEOF
         elif line == "__attribute__":
-            self.type = Type.ATTRIBUTE
+            self._type = Type.ATTRIBUTE
         else:
             d(["D: finalise() could not match type for", self])
-            self.type = Type.UNKNOWN #variables and externally defined types
+            self._type = Type.UNKNOWN #variables and externally defined types
 
     def __str__(self):
         return self.__repr__()
@@ -379,9 +379,9 @@ class Tokeniser(object):
         return self.tokens
 
 class Errors(object):
+    """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
             DEFINE, MISSING, CLOSING) = range(11)
-    """Everyone's favourite"""
     def __init__(self):
         self.naming_d = {}
         self.whitespace_d = {}
@@ -506,14 +506,14 @@ class Styler(object):
                     self.comments[self.current_token.line_number] = True
                 self.position += 1
                 self.current_token = self.tokens[self.position]
-            self.process_globals(filename)
+            self.process_globals()
         except IndexError:
             #that'd be us finished
             pass
         #make sure no changes skip whitespace
         if DEBUG:
             for token in self.tokens:
-                if token.type not in [Type.NEWLINE, Type.LINE_CONT,
+                if token.get_type() not in [Type.NEWLINE, Type.LINE_CONT,
                         Type.COMMENT]:
                     if token.whitespace_checked == 0:
                         print "whitespace check missed:", token
@@ -555,22 +555,22 @@ class Styler(object):
             print "match fail:", self.current_token, old.get_type(), req_type
             assert old.get_type() == req_type
        # do a whitespace check for semicolons
-        if old.type == Type.SEMICOLON:
+        if old.get_type() == Type.SEMICOLON:
             if self.previous_token().get_type() == \
                     [Type.COMMENT, Type.NEWLINE]:
                 self.check_whitespace(self.depth * INDENT_SIZE)
             else:
                 self.check_whitespace(0)
         # check pre-token newlines if {}
-        elif old.type in [Type.LBRACE, Type.RBRACE]:
+        elif old.get_type() in [Type.LBRACE, Type.RBRACE]:
             # previous was a newline but shouldn't have been
             if self.previous_token().get_type() in [Type.NEWLINE,
                     Type.COMMENT]:
                 if pre_newline == NO_NEWLINE:
                     err = Errors.IF
-                    if self.peek().type == Type.ELSE:
+                    if self.peek().get_type() == Type.ELSE:
                         err = Errors.ELSE
-                    self.errors.braces(self.current_token, Errors.IF)
+                    self.errors.braces(self.current_token, err)
             else: #previous wasn't a newline but should've been
                 if pre_newline == MUST_NEWLINE:
                     self.errors.braces(self.current_token, Errors.RUNON)
@@ -587,13 +587,15 @@ class Styler(object):
         # check for extra post-token newlines
         if post_newline == NO_NEWLINE and self.current_type() \
                 in [Type.NEWLINE, Type.LINE_CONT, Type.COMMENT]:
-            if old.type == Type.RBRACE:
+            if old.get_type() == Type.RBRACE:
                 self.errors.braces(old, Errors.RUNON)
+            elif old.get_type() != Type.SEMICOLON:
+                pass #self.line_continuation = True
         # check for missing post-token newlines
         elif post_newline == MUST_NEWLINE \
                 and self.current_type() not in [Type.NEWLINE,
                 Type.LINE_CONT, Type.COMMENT]:
-            if self.tokens[self.position-2].type == Type.ELSE:
+            if self.tokens[self.position-2].get_type() == Type.ELSE:
                 self.errors.braces(self.previous_token(), Errors.ELSE)
             else:
                 self.errors.braces(self.previous_token(), Errors.RUNON)
@@ -611,7 +613,7 @@ class Styler(object):
             return
         if expected == -1:
             expected = self.depth * INDENT_SIZE
-        if self.line_continuation and token.type != Type.RBRACE:
+        if self.line_continuation and token.get_type() != Type.RBRACE:
             expected = self.depth * INDENT_SIZE + LINE_CONTINUATION_SIZE
         if token.whitespace_checked and DEBUG:
             print "whitespace check duplicated:", token
@@ -636,7 +638,7 @@ class Styler(object):
 
     def peek(self):
         i = self.position + 1
-        while self.tokens[i].type in [Type.COMMENT, Type.NEWLINE,
+        while self.tokens[i].get_type() in [Type.COMMENT, Type.NEWLINE,
                 Type.LINE_CONT]:
             i += 1
         return self.tokens[i]
@@ -646,16 +648,17 @@ class Styler(object):
         i = self.position
         depth = 0
         try:
-            while self.tokens[i].type not in [Type.IF, Type.RBRACE, Type.ELSE]:
+            while self.tokens[i].get_type() not in [Type.IF, Type.RBRACE,
+                    Type.ELSE]:
                 i += 1
-                if self.tokens[i].type == Type.RBRACE:
+                if self.tokens[i].get_type() == Type.RBRACE:
                     depth -= 1
                     if depth >= 0:
                         i += 1
-                elif self.tokens[i].type == Type.LBRACE:
+                elif self.tokens[i].get_type() == Type.LBRACE:
                     depth += 1
             d(["D: has matching_else: ending at ", self.tokens[i]])
-            return self.tokens[i].type == Type.ELSE
+            return self.tokens[i].get_type() == Type.ELSE
         except IndexError:
             d(["D: has matching_else: hit end of file"])
             return False
@@ -666,14 +669,14 @@ class Styler(object):
         outf = open(filename+".style", "w")
         infile = open(filename, "r")
         for line in infile:
-            outf.writelines(self.errors.get(line_number))
+            outf.writelines(self.errors.get(line_number) + [line])
         infile.close()
         outf.close()
 
     def consume_line(self):
         while self.current_type() != Type.NEWLINE:
             d(["D: consume_line(): consuming:", self.current_token, 
-                    self.current_type() == Type.NEWLINE, i])
+                    self.current_type() == Type.NEWLINE])
             self.position += 1
             self.current_token = self.tokens[self.position]
         d(["D: consume_line(): consuming:", self.current_token])
@@ -722,7 +725,7 @@ class Styler(object):
                 self.match(Type.STAR)
         d(["D: match_type(): exited", self.current_token])
 
-    def process_globals(self, filename):
+    def process_globals(self):
         """ There's an assumption here that the code compiles to start with.
         Only checking the types of tokens that can start lines in this
         context (compiler directives, prototypes, declarations, definitions).
@@ -742,19 +745,18 @@ class Styler(object):
                     if self.current_type() == Type.CONSTANT:
                         self.check_whitespace(1)
                         include_name.append(self.current_token.line)
-                        self.match(Type.CONSTANT)
+                        self.match(Type.CONSTANT, MUST_NEWLINE)
                     #include <std_stuff.h>
                     else:
                         include_std = True
                         self.check_whitespace(1)
                         self.match() #<
-                        i = 0
                         while self.current_token.line != ">":
                             include_name.append(self.current_token.line)
                             self.check_whitespace(0)
                             self.match()
                         self.check_whitespace(0)
-                        self.match() #>
+                        self.match(Type.ANY, MUST_NEWLINE) #>
                     include_name = "".join(include_name)
                     d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
 #TODO process the included file for defines and so on
@@ -904,7 +906,7 @@ class Styler(object):
             ident = self.current_token.line
             for token in self.tokens:
                 if token.line == ident:
-                    token.type = Type.TYPE
+                    token._type = Type.TYPE
             self.match(Type.TYPE)
         else:
             self.check_whitespace(1)
@@ -1160,9 +1162,6 @@ class Styler(object):
     def check_block(self):
         d(["\nD: check_block(): entered", self.current_token])
         self.depth += 1
-        if self.current_type() == Type.LBRACE:
-            self.check_whitespace(1)
-            self.match()
         #block ends if we hit the matching brace
         while self.current_type() != Type.RBRACE:
             d(["D:in block while: ", self.current_token])
@@ -1223,7 +1222,7 @@ class Styler(object):
                         self.check_whitespace(1)
                         self.match(Type.IF)
                         has_else = self.has_matching_else()
-                        d(["D: check_block(): ",self.previous_token(), 
+                        d(["D: check_block(): ", self.previous_token(), 
                                 " has else:", has_else])
                         self.check_condition()
                         self.should_have_block(has_else)
@@ -1232,7 +1231,8 @@ class Styler(object):
             elif self.current_type() == Type.UNKNOWN:
                 self.check_statement()
             elif self.current_type() == Type.LBRACE:
-                self.match(Type.LBRACE)
+                d(["D: found a block inside a block"])
+                self.match(Type.LBRACE, MUST_NEWLINE, MUST_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
@@ -1244,12 +1244,10 @@ class Styler(object):
                 print "check_block(): unexpected token:", self.current_token
                 self.match()
         self.depth -= 1
-
         d(["D: check_block(): exited", self.current_token, "\n"])
 
     def check_define(self):
-#TODO mark it to be manually checked, since it's haaard
-        print "check_define(): not completely implemented"
+#TODO mark it to be manually checked, since it's haaard to parse
         self.check_whitespace(1)
         first = self.current_token
         self.match() #the identifier
@@ -1276,7 +1274,7 @@ class Styler(object):
                 self.current_token = self.tokens[self.position]
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
-            if first.type == Type.UNKNOWN:
+            if first._type == Type.UNKNOWN: #direct access deliberate
                 if "".join(first.line).upper() != "".join(first.line):
                     self.errors.naming(first, Errors.DEFINE)
                 #complicated
@@ -1289,19 +1287,19 @@ class Styler(object):
                     if tokens[0] != Type.UNKNOWN:
                         for n in xrange(self.position + 1, len(self.tokens)):
                             if self.tokens[n].line == first.line:
-                                self.tokens[n].type = tokens[0].type
+                                self.tokens[n]._type = tokens[0]._type
             #oh my, they #defined an existing symbol/keyword
             else:
                 if len(tokens) > 1:
                     print "this is terrible, why do this to me"
 #TODO violate them
                     for token in self.tokens:
-                        if token.type == first.type:
+                        if token._type == first._type:
                             token.inner_tokens = tokens
                 else:
                     for n in xrange(self.position + 1, len(self.tokens)):
-                        if self.tokens[n].type == first.type:
-                            self.tokens[n].type = tokens[0].type
+                        if self.tokens[n]._type == first._type:
+                            self.tokens[n]._type = tokens[0]._type
         
     def check_array_assignment(self):
         if self.current_type() == Type.UNKNOWN:
@@ -1425,10 +1423,10 @@ class Styler(object):
 if __name__ == '__main__':
     if (len(sys.argv)) == 1:
         print "no arguments given"
-    for i in range(1, len(sys.argv)):
-        if sys.argv[i].strip():
-            print 'Parsing %s...' % sys.argv[i]
-            style = Styler(sys.argv[i])
+    for f in range(1, len(sys.argv)):
+        if sys.argv[f].strip():
+            print 'Parsing %s...' % sys.argv[f]
+            style = Styler(sys.argv[f])
             print style.errors
             print "THIS IS NOT A GUARANTEE OF CORRECTNESS"
 
