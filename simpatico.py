@@ -5,7 +5,8 @@ Hopefully it's good. """
 
 import sys
 
-#MOSS_INCLUDE_LOCATIONS
+import headers
+
 
 DEBUG = True
 
@@ -22,9 +23,15 @@ def d(elements):
 
 TYPE_SPECIFIERS = ['void', 'char', 'short', 'int', 'long', 'float', 'double',
                  'signed', 'unsigned', '_Bool', '_Imaginary', '_Complex']
+DEFINED_TYPES = ['__UINTMAX_TYPE__', '__SIZE_TYPE__', '__CHAR16_Type__',
+        '__WCHAR_TYPE__', '__WINT_TYPE__', '__CHAR32_TYPE__',
+        '__INTMAX_TYPE__', '__PTRDIFF_TYPE__'] #default defines with gcc
 STRUCT_UNION = ["struct", "union"]
 STORAGE_CLASS = ["register", "static", "extern", "auto", "typedef"]
 TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
+
+known_types = TYPE_SPECIFIERS + DEFINED_TYPES
+
 class Terminals(object):
     KW_AUTO = "auto"
     KW_BREAK = "break"
@@ -64,8 +71,6 @@ class Terminals(object):
     KW_COMPLEX = "_Complex"
     KW_IMAGINARY = "_Imaginary"
 
-
-KNOWN_VARIABLES = ['errno', 'stderr', 'stdout']
 BINARY_OPERATORS = ["+", "/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
 UNARY_OPERATORS = ["--", "++", "!"]
 LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "=="]
@@ -88,6 +93,7 @@ class Type(object):
 
 class Word(object):
     """ Keeps track of contextual details about the word """
+    known_types = TYPE_SPECIFIERS + DEFINED_TYPES
     def __init__(self):
         self.space = -1
         self.line_number = -1
@@ -174,7 +180,7 @@ class Word(object):
             self._type = Type.STAR
         elif line == "&":
             self._type = Type.AMPERSAND
-        elif line in TYPE_SPECIFIERS:
+        elif line in Word.known_types:
             self._type = Type.TYPE
         elif line in ["--", "++"]:
             self._type = Type.CREMENT
@@ -837,8 +843,33 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.ANY, MUST_NEWLINE) #>
             include_name = "".join(include_name)
-            d(["INCLUDE:", "'"+include_name+"'", "std? =",
-                    include_std])
+            if include_std:
+                new_types = headers.standard_header_types.get(include_name, -1)
+                if new_types == -1:
+                    print "".join([
+                        "\nThe header <", include_name,
+                        "> was not found in the preprocessed list.\n"
+                        "Please report this to the maintainer so it ",
+                        "can be fixed.\n",
+                        "Since the parsing will likely break terribly due to ",
+                        "unknown types\n(C is not a context free language), ",
+                        "simpatico will end parsing now."])
+                    exit(1)
+                else:
+                    d(["including types from", include_name])
+                    #add the types
+                    Word.known_types.extend(new_types)
+                    #then go through alllll the UNKNOWN tokens and update
+                    for token in self.tokens:
+                        #using direct access because we don't want to screw
+                        #with #defined identifiers
+                        if token._type == Type.UNKNOWN:
+                            token.finalise()
+                            if token._type != Type.UNKNOWN:
+                                d(["updated token type for", token])
+                                
+                            
+            d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
 #TODO process the included file for defines and so on
         #define
         elif self.current_type() == Type.DEFINE:
@@ -1481,6 +1512,7 @@ if __name__ == '__main__':
         print "no arguments given"
     for f in range(1, len(sys.argv)):
         if sys.argv[f].strip():
+            Word.known_types = TYPE_SPECIFIERS + DEFINED_TYPES
             print 'Parsing %s...' % sys.argv[f]
             style = Styler(sys.argv[f])
             print style.errors
