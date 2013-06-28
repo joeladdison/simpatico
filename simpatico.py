@@ -30,8 +30,6 @@ STRUCT_UNION = ["struct", "union"]
 STORAGE_CLASS = ["register", "static", "extern", "auto", "typedef"]
 TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
 
-known_types = TYPE_SPECIFIERS + DEFINED_TYPES
-
 class Terminals(object):
     KW_AUTO = "auto"
     KW_BREAK = "break"
@@ -93,7 +91,6 @@ class Type(object):
 
 class Word(object):
     """ Keeps track of contextual details about the word """
-    known_types = TYPE_SPECIFIERS + DEFINED_TYPES
     def __init__(self):
         self.space = -1
         self.line_number = -1
@@ -180,7 +177,7 @@ class Word(object):
             self._type = Type.STAR
         elif line == "&":
             self._type = Type.AMPERSAND
-        elif line in Word.known_types:
+        elif line in TYPE_SPECIFIERS + DEFINED_TYPES:
             self._type = Type.TYPE
         elif line in ["--", "++"]:
             self._type = Type.CREMENT
@@ -486,7 +483,7 @@ class Styler(object):
     def __init__(self, filename, verbose = True, output_file = False):
         #some setup
         self.errors = Errors()
-
+        self.found_types = []
         #quick run for line lengths
         line_number = 0
         self.infile = open(filename, "r")
@@ -843,6 +840,7 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.ANY, MUST_NEWLINE) #>
             include_name = "".join(include_name)
+            new_types = []
             if include_std:
                 new_types = headers.standard_header_types.get(include_name, -1)
                 if new_types == -1:
@@ -855,22 +853,13 @@ class Styler(object):
                         "unknown types\n(C is not a context free language), ",
                         "simpatico will end parsing now."])
                     exit(1)
-                else:
-                    d(["including types from", include_name])
-                    #add the types
-                    Word.known_types.extend(new_types)
-                    #then go through alllll the UNKNOWN tokens and update
-                    for token in self.tokens:
-                        #using direct access because we don't want to screw
-                        #with #defined identifiers
-                        if token._type == Type.UNKNOWN:
-                            token.finalise()
-                            if token._type != Type.UNKNOWN:
-                                d(["updated token type for", token])
-                                
-                            
-            d(["INCLUDE:", "'"+include_name+"'", "std? =", include_std])
-#TODO process the included file for defines and so on
+            #custom header
+            else:
+                fun_with_recursion = Styler(include_name[1:-1]) #" "
+                new_types = [x.line for x in fun_with_recursion.found_types]
+            d(["including", len(new_types), "types from", include_name])
+            #add the types
+            self.update_types(new_types)                               
         #define
         elif self.current_type() == Type.DEFINE:
             self.match()
@@ -880,6 +869,18 @@ class Styler(object):
             self.match(Type.PRECOMPILER)
             self.check_whitespace(1)
             self.consume_line()
+
+    def update_types(self, new_types):
+        self.found_types.extend(new_types)
+        count = 0
+        for token in self.tokens:
+            #we use the actual token type here and not defined ones
+            #that's because #defined overrides it and the inner ones will
+            #update anyway
+            if token._type == Type.UNKNOWN and token.line in new_types:
+                token._type = Type.TYPE
+                count += 1
+        d(["updated token type for", count, "tokens"])
 
     def check_naming(self, token, name_type = Errors.VARIABLE):
         name = token.line
@@ -948,7 +949,8 @@ class Styler(object):
             self.check_whitespace(1)
             self.match_type()
             identifier = self.current_token
-            self.match(Type.UNKNOWN)
+            self.match(Type.UNKNOWN) #our shiny new type
+            self.update_types([identifier])
         self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_typedef() exited", self.current_token])
 
@@ -1512,7 +1514,6 @@ if __name__ == '__main__':
         print "no arguments given"
     for f in range(1, len(sys.argv)):
         if sys.argv[f].strip():
-            Word.known_types = TYPE_SPECIFIERS + DEFINED_TYPES
             print 'Parsing %s...' % sys.argv[f]
             style = Styler(sys.argv[f])
             print style.errors
