@@ -1143,17 +1143,16 @@ class Styler(object):
             self.check_whitespace(0)
             #is this empty
             if self.current_type() == Type.RPAREN:
-                self.match(Type.RPAREN)
-                self.check_whitespace(1)
+                pass
             #if it's not a typecast
             elif self.current_type() == Type.TYPE:
                 self.match_type()
                 self.check_whitespace(0)
-                self.match(Type.RPAREN)
-                self.check_whitespace(1)
             #match a whole new expression
             else:
                 self.check_expression()
+            self.match(Type.RPAREN)
+            self.check_whitespace(1)                
         elif self.current_type() == Type.NOT:
             self.match(Type.NOT)
             self.check_whitespace(0)
@@ -1185,7 +1184,7 @@ class Styler(object):
                 self.match(Type.CREMENT)
             #check if it was a function, check if it's being called
             #possibly also a indexing operation with equivalent contents
-            if self.current_type() in [Type.LPAREN, Type.LSQUARE]:
+            while self.current_type() in [Type.LPAREN, Type.LSQUARE]:
                 recovery = Type.RPAREN
                 if self.current_type() == Type.LSQUARE:
                     recovery = Type.RSQUARE
