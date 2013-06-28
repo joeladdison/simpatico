@@ -960,7 +960,11 @@ class Styler(object):
         self.check_whitespace(0)
         d(["checking for init", self.current_token])
         if self.current_type() != Type.SEMICOLON:
-            self.check_statement(True) #for (thing;
+            if self.current_type() == Type.TYPE:
+                self.check_statement(True) #for (type thing;
+            else:
+                self.check_expression() #for (thing;
+                self.match(Type.SEMICOLON)
         else:
             self.match(Type.SEMICOLON)
         d(["checking for conditional", self.current_token])
@@ -973,6 +977,9 @@ class Styler(object):
             d(["checking for post-loop", self.current_token])
             self.check_expression() #for (thing; thing; thing
         while self.current_type() == Type.COMMA:
+            self.check_whitespace(1)
+            self.match(Type.COMMA)
+            self.check_whitespace(1)
             self.check_expression() #for (thing; thing; thing, ...)
         self.check_whitespace(0)
         self.match(Type.RPAREN)
@@ -1161,10 +1168,15 @@ class Styler(object):
 
         #grab a value of some form
         while self.current_type() in [Type.UNKNOWN, Type.CONSTANT,
-                Type.SIZEOF]:
+                Type.SIZEOF, Type.ASSIGNMENT]:
             if self.current_type() == Type.SIZEOF:
                 self.match(Type.SIZEOF)
                 self.check_sizeof()
+            elif self.current_type() == Type.ASSIGNMENT:
+                self.check_whitespace(1)
+                self.match(Type.ASSIGNMENT)
+                self.check_whitespace(1)
+                self.check_expression()
             else:
                 self.match() #the value
             #get rid of post operators if they're there
