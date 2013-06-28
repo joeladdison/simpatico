@@ -71,7 +71,7 @@ class Terminals(object):
 
 BINARY_OPERATORS = ["+", "/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
 UNARY_OPERATORS = ["--", "++", "!"]
-LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "=="]
+LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "==", "!="]
 ASSIGNMENTS = ["=", "%=", "+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>="]
 ALL_OPS = BINARY_OPERATORS + UNARY_OPERATORS + ASSIGNMENTS + LOGICAL_OPERATORS
 #by the time we use this one, there's no natural \t chars left
