@@ -940,10 +940,8 @@ class Styler(object):
             self.match(Type.STRUCT)
             self.check_struct(IS_TYPEDEF)
             self.check_whitespace(1)
-            ident = self.current_token.line
-            for token in self.tokens:
-                if token.line == ident:
-                    token._type = Type.TYPE
+            assert self.current_type() == Type.UNKNOWN
+            self.update_types([self.current_token.line])
             self.match(Type.TYPE)
         else:
             self.check_whitespace(1)
