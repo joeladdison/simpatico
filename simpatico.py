@@ -1007,6 +1007,11 @@ class Styler(object):
         self.match(Type.LPAREN)
         self.check_whitespace(0) # (exp
         self.check_expression()
+        while self.current_type() == Type.COMMA:
+            self.check_whitespace(0)
+            self.match(Type.COMMA)
+            self.check_whitespace(1)
+            self.check_expression()
         self.check_whitespace(0) # exp)
         self.match(Type.RPAREN)
 
