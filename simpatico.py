@@ -1138,21 +1138,6 @@ class Styler(object):
         elif self.current_type() == Type.CREMENT:
             self.match(Type.CREMENT)
             self.check_whitespace(0)
-        elif self.current_type() == Type.LPAREN:
-            self.match(Type.LPAREN)
-            self.check_whitespace(0)
-            #is this empty
-            if self.current_type() == Type.RPAREN:
-                pass
-            #if it's not a typecast
-            elif self.current_type() == Type.TYPE:
-                self.match_type()
-                self.check_whitespace(0)
-            #match a whole new expression
-            else:
-                self.check_expression()
-            self.match(Type.RPAREN)
-            self.check_whitespace(1)                
         elif self.current_type() == Type.NOT:
             self.match(Type.NOT)
             self.check_whitespace(0)
@@ -1167,7 +1152,7 @@ class Styler(object):
 
         #grab a value of some form
         while self.current_type() in [Type.UNKNOWN, Type.CONSTANT,
-                Type.SIZEOF, Type.ASSIGNMENT]:
+                Type.SIZEOF, Type.ASSIGNMENT, Type.LPAREN]:
             if self.current_type() == Type.SIZEOF:
                 self.match(Type.SIZEOF)
                 self.check_sizeof()
@@ -1176,6 +1161,23 @@ class Styler(object):
                 self.match(Type.ASSIGNMENT)
                 self.check_whitespace(1)
                 self.check_expression()
+            elif self.current_type() == Type.LPAREN:
+                self.match(Type.LPAREN)
+                self.check_whitespace(0)
+                #is this empty
+                if self.current_type() == Type.RPAREN:
+                    pass
+                #if it's not a typecast
+                elif self.current_type() == Type.TYPE:
+                    self.match_type()
+                    self.check_whitespace(0)
+                    self.match(Type.RPAREN)
+                    continue #find whatever value is being cast
+                #match a whole new expression
+                else:
+                    self.check_expression()
+                self.match(Type.RPAREN)
+                self.check_whitespace(1)
             else:
                 self.match() #the value
             #get rid of post operators if they're there
