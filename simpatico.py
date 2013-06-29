@@ -170,10 +170,8 @@ class Word(object):
             self._type = Type.RPAREN
         elif line == "-":
             self._type = Type.MINUS
-        elif line in BINARY_OPERATORS:
+        elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
-        elif line in LOGICAL_OPERATORS:
-            self._type = Type.LOGICAL_OP
         elif line == "*":
             self._type = Type.STAR
         elif line == "&":
@@ -360,7 +358,11 @@ class Tokeniser(object):
                 self.add_to_word(c, n - self.line_start)
             #now we just have to catch the possible word seperators
             elif c in self.deal_breakers:
-                if c == "/" and megastring[n+1] == "*":
+                if c == "}":
+                    self.end_word()
+                    self.add_to_word(c, n - self.line_start)
+                    self.end_word()
+                elif c == "/" and megastring[n+1] == "*":
                     self.multiline_comment = megastring.find("*/", n) + 1
                 elif c == "/" and megastring[n+1] == "/":
                     self.in_singleline_comment = True
@@ -415,6 +417,7 @@ class Errors(object):
         self.whitespace_d[token.line_number] = "[WHITESPACE] At " + \
                 "position %d: expected %d whitespace, found %d " % (
                 token.get_position(), expected, token.get_spacing_left())
+        #raw_input("pausing while you figure out why")
         
     def line_length(self, line_number, length):
         self.total += 1
@@ -699,15 +702,18 @@ class Styler(object):
             print self.current_token.line in self.found_types
             print self.included_files
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]
-        while self.current_type() in [Type.TYPE, Type.IGNORE]:           
+        if self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.match()
-            self.check_whitespace(1, self.current_type() != Type.STAR)
-        if self.current_type() == Type.STRUCT:
+            while self.current_type() in [Type.TYPE, Type.IGNORE]:           
+                self.check_whitespace(1)
+                self.match()
+        elif self.current_type() == Type.STRUCT:
             #match the struct keyword first
             self.match(Type.STRUCT)
+            self.check_whitespace(1)
             #then let it go on to the name of the struct type
             self.match(Type.UNKNOWN)
-        # check if function pointer
+        # check if function pointer (preceeded by type, that's why not elif)
         if self.current_type() == Type.LPAREN:
             self.check_whitespace(1)
             self.match(Type.LPAREN) #(
@@ -734,7 +740,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types))
         # strip the pointers if they're there
-        elif self.current_type() == Type.STAR:
+        if self.current_type() == Type.STAR:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
             while self.current_type() == Type.STAR:
@@ -761,15 +767,15 @@ class Styler(object):
             #function returning a function pointer, since it's complicated
             elif self.current_type() == Type.LPAREN:
                 d(["dealing with a function prototype return value"])
-                #example is (*indentifier())(char *, int)
+                #example is (*identifier())(char *, int)
                 self.match(Type.LPAREN) #(
                 self.check_whitespace(0)
                 self.match(Type.STAR) #(*
                 self.check_naming(self.current_token, Errors.FUNCTION)
                 self.check_whitespace(1, ALLOW_ZERO)
-                self.match(Type.UNKNOWN) #(*indentifier
+                self.match(Type.UNKNOWN) #(*identifier
                 self.check_whitespace(0)
-                self.match(Type.LPAREN) #(*indentifier(
+                self.match(Type.LPAREN) #(*identifier(
                 #match args to this func (including naming checks)
                 self.check_whitespace(0)
                 if self.current_type() != Type.RPAREN:
@@ -780,11 +786,11 @@ class Styler(object):
                         self.check_whitespace(0)
                         self.check_declaration()
                     self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*indentifier()
+                self.match(Type.RPAREN) #(*identifier()
                 self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*indentifier())
+                self.match(Type.RPAREN) #(*identifier())
                 self.check_whitespace(0)
-                self.match(Type.LPAREN) #(*indentifier())(
+                self.match(Type.LPAREN) #(*identifier())(
                 self.check_whitespace(0)
                 #match types of function pointer
                 if self.current_type() != Type.RPAREN:
@@ -795,7 +801,7 @@ class Styler(object):
                         self.check_whitespace(1)
                         self.match_type()
                 self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*indentifier(...))(...)
+                self.match(Type.RPAREN) #(*identifier(...))(...)
                 d(["finished with function prototype return value"])
                 if self.previous_token() == Type.NEWLINE:
                     self.check_whitespace()
@@ -926,7 +932,7 @@ class Styler(object):
         #skip the type name
         if self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1)
-            self.match(Type.UNKNOWN) # indentifier
+            self.match(Type.UNKNOWN) # identifier
         #ensure it's the block, then start it
         assert self.current_type() == Type.LBRACE
         self.check_whitespace(1)
@@ -1132,115 +1138,129 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.LPAREN)
             self.check_whitespace(0)
-            self.match_type()
+            if self.current_type() == Type.TYPE: #sizeof(type)
+                self.match_type()
+            else:
+                self.match(Type.UNKNOWN) #sizeof(var)
             self.check_whitespace(0)
             self.match(Type.RPAREN)
-        #size of variable
+        #sizeof var
         elif self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1)
+            self.match(Type.UNKNOWN)
+            self.check_post_identifier()
         else:
             print "check_sizeof(): unexpected token:", self.current_token
             assert False #crash this thing so we can trace it
         
         d(["check_sizeof(): exited", self.current_token])
 
+    def check_post_identifier(self):
+        d(["check_post_identifier(): entered", self.current_token])
+        # ++ or --
+        if self.current_type() == Type.CREMENT:
+            self.check_whitespace(0)
+            self.match(Type.CREMENT)
+        # func params
+        elif self.current_type() == Type.LPAREN:
+            self.check_whitespace(0)
+            self.match(Type.LPAREN)
+            self.check_whitespace(0)
+            self.check_expression()
+            #multiple
+            while self.current_type() == Type.COMMA:
+                self.check_whitespace(0)
+                self.match(Type.COMMA)
+                self.check_whitespace(1)
+                self.check_expression()
+            self.check_whitespace(0)
+            self.match(Type.RPAREN)
+        #indexing
+        elif self.current_type() == Type.LSQUARE:
+            #can be chained
+            while self.current_type() == Type.LSQUARE:
+                self.check_whitespace(0)
+                self.match(Type.LSQUARE)
+                self.check_whitespace(0)
+                self.check_expression()
+                self.check_whitespace(0)
+                self.match(Type.RSQUARE)
+        d(["check_post_identifier(): exited", self.current_token])
+
     def check_expression(self):
         d(["check_exp(): entered", self.current_token])
-        #clear out any pre-value modifiers
-        if self.current_type() == Type.AMPERSAND:
-            self.match(Type.AMPERSAND)
+        #the empty string/expression
+        if self.current_type() in [Type.RPAREN, Type.RSQUARE]:
+            return
+        #repeatable unary ops
+        if self.current_type() in [Type.STAR, Type.NOT]:
+            while self.current_type() in [Type.STAR, Type.NOT]:
+                self.match()
+                self.check_whitespace(0)
+        #single instance unary ops
+        elif self.current_type() in [Type.CREMENT, Type.AMPERSAND, Type.MINUS]:
+            self.match()
             self.check_whitespace(0)
-        elif self.current_type() == Type.STAR:
-            self.match(Type.STAR)
-            self.check_whitespace(0)
-        elif self.current_type() == Type.MINUS:
-            self.match(Type.MINUS)
-            self.check_whitespace(0)
-        elif self.current_type() == Type.CREMENT:
-            self.match(Type.CREMENT)
-            self.check_whitespace(0)
-        elif self.current_type() == Type.NOT:
-            self.match(Type.NOT)
-            self.check_whitespace(0)
+        #is there even an expression here?
         elif self.current_type() == Type.SEMICOLON:
             #nothing to see here
-            pass
-        elif self.current_type() == Type.RPAREN:
-            #end this
-            self.match(Type.RPAREN)
             d(["check_exp(): exited", self.current_token])
             return
-        elif self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
+
+        #only identifiers, sizeof, constants and subexpressions should remain
+        if self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
                 Type.SIZEOF, Type.LPAREN]:
             d(["check_exp(): unexpected token:", self.current_token])
             assert False #crash this thing so we can trace it
 
         #grab a value of some form
-        while self.current_type() in [Type.UNKNOWN, Type.CONSTANT,
-                Type.SIZEOF, Type.ASSIGNMENT, Type.LPAREN, Type.AMPERSAND]:
-            if self.current_type() == Type.SIZEOF:
-                self.match(Type.SIZEOF)
-                self.check_sizeof()
-            elif self.current_type() == Type.AMPERSAND:
-                self.match(Type.AMPERSAND)
+        #Type.LPAREN (subexp, typecast)
+        if self.current_type() == Type.LPAREN:
+            self.match(Type.LPAREN)
+            self.check_whitespace(0)
+            #typecast
+            if self.current_type() in [Type.TYPE, Type.STRUCT]:
+                #first clear the typecast
+                self.match_type()
                 self.check_whitespace(0)
-                self.check_expression()
-            elif self.current_type() == Type.ASSIGNMENT:
-                self.check_whitespace(1)
-                self.match(Type.ASSIGNMENT)
-                self.check_whitespace(1)
-                self.check_expression()
-            elif self.current_type() == Type.LPAREN:
-                self.match(Type.LPAREN)
-                self.check_whitespace(0)
-                #is this empty
-                if self.current_type() == Type.RPAREN:
-                    pass
-                #if it's a typecast
-                elif self.current_type() in [Type.TYPE, Type.STRUCT]:
-                    self.match_type()
-                    self.check_whitespace(0)
-                    self.match(Type.RPAREN)
-                    continue #find whatever value is being cast
-                #or just a sub-expression
-                else:
-                    self.check_expression()
                 self.match(Type.RPAREN)
-                self.check_whitespace(1)
-            else:
-                self.match() #the value
-            #get rid of post operators if they're there
-            if self.current_type() == Type.CREMENT:
+                #then get what's being cast
                 self.check_whitespace(0)
-                self.match(Type.CREMENT)
-            #check if it was a function, check if it's being called
-            #possibly also a indexing operation with equivalent contents
-            while self.current_type() in [Type.LPAREN, Type.LSQUARE]:
-                recovery = Type.RPAREN
-                if self.current_type() == Type.LSQUARE:
-                    recovery = Type.RSQUARE
-                self.check_whitespace(0)
-                self.match(Type.ANY)
-                self.check_whitespace(0)
-                #does it have args/index
-                if self.current_type() != recovery:
-                    #process first arg/index
-                    self.check_expression()
-                    #process others, if they exist (only for funcs)
-                    while self.current_type() == Type.COMMA:
-                        self.check_whitespace(0)
-                        self.match(Type.COMMA)
-                        self.check_whitespace(1)
-                        self.check_expression()
-                    self.check_whitespace(0)
-                self.match(recovery)
-            # now grab the operators before the next value
-            while self.current_type() in [Type.CREMENT, Type.BINARY_OP,
-                    Type.LOGICAL_OP, Type.MINUS, Type.STAR]:
-                self.check_whitespace(1, ALLOW_ZERO)
-                self.match() #'-- / - &&' etc
-                self.check_whitespace(1, ALLOW_ZERO)
                 self.check_expression()
+            #subexpression
+            else:
+                self.check_expression()
+                self.check_whitespace(0)
+                self.match(Type.RPAREN)
+        #const
+        elif self.current_type() == Type.CONSTANT:
+            self.match(Type.CONSTANT)
+            #possible for following constants (e.g. printf("aaa" "bbb")
+            while self.current_type() == Type.CONSTANT:
+                self.check_whitespace(1)
+                self.match(Type.CONSTANT)
+        #identifier (with optional following crement, index or params)
+        elif self.current_type() == Type.UNKNOWN:
+            self.match(Type.UNKNOWN)
+            self.check_post_identifier()
+        #sizeof
+        elif self.current_type() == Type.SIZEOF:
+            self.match(Type.SIZEOF)
+            self.check_sizeof()
+            
+        #now test for a following operator
+        if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR]:
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.match()
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.check_expression()
+        #or possibly assignments with their special case of whitespace
+        elif self.current_type() == Type.ASSIGNMENT:
+            self.check_whitespace(1)
+            self.match(Type.ASSIGNMENT)
+            self.check_whitespace(1)
+            self.check_expression()
+        #and done
         d(["check_exp(): exited", self.current_token])
 
     def check_block(self):
@@ -1339,7 +1359,7 @@ class Styler(object):
                 self.check_do()
             elif self.current_type() == Type.SWITCH:
                 self.match(Type.SWITCH)
-                self.check_whitespace(1)
+                self.check_whitespace(1, ALLOW_ZERO)
                 self.check_switch()
             elif self.current_type() == Type.SEMICOLON:
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
@@ -1483,16 +1503,20 @@ class Styler(object):
         #is this a function?
         if self.current_type() == Type.LPAREN:
             d(["decl is a func", self.previous_token()])
-            self.check_naming(name, Errors.FUNCTION)
+            param_names = []
             self.check_whitespace(0)
             self.match(Type.LPAREN)
-            self.check_whitespace(0)
 #TODO need to chomp some args here and test naming
             #but for now
             if self.current_type() != Type.RPAREN:
-                self.match_type() #type
-                if self.current_type() == Type.UNKNOWN:
+                self.check_whitespace(0)
+                #types can be omitted if prototyped
+                if self.current_type() == Type.TYPE: 
+                    self.match_type() #type
                     self.check_whitespace(1, ALLOW_ZERO)
+                #identifiers can be ommitted in a prototype
+                if self.current_type() == Type.UNKNOWN:
+                    param_names.append(self.current_token)
                     self.match(Type.UNKNOWN)
                 #strip array type indicators
                 while self.current_type() == Type.LSQUARE:
@@ -1522,6 +1546,10 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
+                #check the name, now that we're in the definition
+                self.check_naming(name, Errors.FUNCTION)
+                for param in param_names:
+                    self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
                 if self.previous_token().get_type() == Type.NEWLINE:
                     self.check_whitespace()
@@ -1534,6 +1562,8 @@ class Styler(object):
                 func_length = self.current_token.line_number - start_line
                 if func_length >= 50:
                     self.errors.func_length(start_line, func_length)
+            else:
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             d(["check_declaration() exited a func", self.current_token])
             return
         d(["decl is a var", self.previous_token()])
