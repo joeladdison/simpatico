@@ -414,10 +414,11 @@ class Errors(object):
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
-        self.whitespace_d[token.line_number] = "[WHITESPACE] At " + \
-                "position %d: expected %d whitespace, found %d " % (
-                token.get_position(), expected, token.get_spacing_left())
-        #raw_input("pausing while you figure out why")
+        self.whitespace_d[token.line_number] = "".join([
+                "[WHITESPACE] '", token.line, "' at ",
+                "position %d: expected %d whitespace, found %d " % \
+                (token.get_position(), expected, token.get_spacing_left())])
+        raw_input("pausing while you figure out why")
         
     def line_length(self, line_number, length):
         self.total += 1
@@ -998,7 +999,7 @@ class Styler(object):
             d(["checking for post-loop", self.current_token])
             self.check_expression() #for (thing; thing; thing
         while self.current_type() == Type.COMMA:
-            self.check_whitespace(1)
+            self.check_whitespace(0)
             self.match(Type.COMMA)
             self.check_whitespace(1)
             self.check_expression() #for (thing; thing; thing, ...)
@@ -1092,30 +1093,8 @@ class Styler(object):
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.UNKNOWN:
             self.check_expression()
-            if self.current_type() == Type.ASSIGNMENT:
-                self.check_whitespace(1)
-                self.match(Type.ASSIGNMENT)
-                self.check_whitespace(1)
-                self.check_expression()
         if self.current_type() == Type.LPAREN:
-            self.match(Type.LPAREN)
-            self.check_whitespace(0)
             self.check_expression()
-            self.match(Type.RPAREN)
-            while self.current_type() in [Type.BINARY_OP, Type.ASSIGNMENT]:
-                if self.current_type() == Type.BINARY_OP:
-                    self.check_whitespace(1, ALLOW_ZERO)
-                    self.match(Type.BINARY_OP)
-                    self.check_whitespace(1, ALLOW_ZERO)
-                else:
-                    self.check_whitespace(1)
-                    self.match(Type.ASSIGNMENT)
-                    self.check_whitespace(1)
-                self.check_expression()
-            while self.current_type() == Type.COMMA:
-                self.match(Type.COMMA)
-                self.check_whitespace(1)
-                self.check_expression()
         elif self.current_type() == Type.BREAK:
             self.match(Type.BREAK)
         elif self.current_type() == Type.RETURN:
@@ -1125,8 +1104,7 @@ class Styler(object):
                 self.check_whitespace(1)
                 self.check_expression()
         elif self.current_type() == Type.CREMENT:
-            self.check_whitespace(0)
-            self.match(Type.CREMENT)
+            self.check_expression()
         if not in_for:
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_statement(): exited", self.current_token])
@@ -1190,7 +1168,7 @@ class Styler(object):
     def check_expression(self):
         d(["check_exp(): entered", self.current_token])
         #the empty string/expression
-        if self.current_type() in [Type.RPAREN, Type.RSQUARE]:
+        if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA]:
             return
         #repeatable unary ops
         if self.current_type() in [Type.STAR, Type.NOT]:
@@ -1225,7 +1203,7 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.RPAREN)
                 #then get what's being cast
-                self.check_whitespace(0)
+                self.check_whitespace(1, ALLOW_ZERO)
                 self.check_expression()
             #subexpression
             else:
@@ -1275,8 +1253,6 @@ class Styler(object):
             self.check_whitespace()
             if self.current_type() == Type.TYPE:
                 self.check_declaration()
-                if self.current_type() == Type.SEMICOLON:
-                    self.match(Type.SEMICOLON, MUST_NEWLINE)
             elif self.current_type() == Type.STRUCT:
                 self.match(Type.STRUCT)
                 self.check_whitespace(1)
@@ -1296,7 +1272,7 @@ class Styler(object):
                         self.check_whitespace(1, ALLOW_ZERO)
                 
                     self.check_whitespace(1)
-                    #TODO check var name
+                    self.check_naming(self.current_token, Errors.VARIABLE)
                     self.match(Type.UNKNOWN)
                     if self.current_type() == Type.ASSIGNMENT:
                         self.check_whitespace(1)
@@ -1325,35 +1301,27 @@ class Styler(object):
                         #otherwise it's just a normal expression
                         else:
                             self.check_expression()
-                self.match(Type.SEMICOLON)
             elif self.current_type() == Type.RETURN:
                 self.match(Type.RETURN)
+                #if returning a value
                 if self.current_type() != Type.SEMICOLON:
                     self.check_whitespace(1)
                     self.check_expression()
-                self.match(Type.SEMICOLON, MUST_NEWLINE)
-            elif self.current_type() == Type.STAR:
-                #a dereference
-                self.match(Type.STAR)
-                self.check_whitespace(0)
+            elif self.current_type() in [Type.STAR, Type.CREMENT,
+                    Type.CONSTANT, Type.SIZEOF, Type.LPAREN]:
                 self.check_expression()
-                self.match(Type.SEMICOLON)
             elif self.current_type() == Type.BREAK:
                 self.match(Type.BREAK)
-                self.match(Type.SEMICOLON, MUST_NEWLINE)
-            elif self.current_type() == Type.CREMENT:
-                self.match(Type.CREMENT)
-                self.check_whitespace(0)
-                self.match(Type.UNKNOWN) # identifier
-                self.match(Type.SEMICOLON, MUST_NEWLINE)
             elif self.current_type() == Type.FOR:
                 self.match(Type.FOR)
                 self.check_whitespace(1, ALLOW_ZERO)
                 self.check_for()
+                continue
             elif self.current_type() == Type.WHILE:
                 self.match(Type.WHILE)
                 self.check_condition()
                 self.should_have_block()
+                continue
             elif self.current_type() == Type.DO:
                 self.match(Type.DO)
                 self.check_do()
@@ -1361,8 +1329,7 @@ class Styler(object):
                 self.match(Type.SWITCH)
                 self.check_whitespace(1, ALLOW_ZERO)
                 self.check_switch()
-            elif self.current_type() == Type.SEMICOLON:
-                self.match(Type.SEMICOLON, MUST_NEWLINE)
+                continue
             elif self.current_type() == Type.IF:
                 self.match(Type.IF)
                 has_else = self.has_matching_else()
@@ -1383,23 +1350,17 @@ class Styler(object):
                         self.should_have_block(has_else)
                     else:
                         self.should_have_block() #else already
+                continue
             elif self.current_type() == Type.UNKNOWN:
-                self.check_statement()
+                self.check_expression()
             elif self.current_type() == Type.LBRACE:
                 d(["found a block inside a block"])
                 self.match(Type.LBRACE, MUST_NEWLINE, MUST_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
-            elif self.current_type() == Type.LPAREN:
-                self.check_statement()
-            elif self.current_type() in [Type.CONSTANT, Type.SIZEOF]:
-                #legit, but stupid
-                self.check_expression()
-                self.match(Type.SEMICOLON, MUST_NEWLINE)
-            else:
-                print "check_block(): unexpected token:", self.current_token
-                assert False #crash this thing so we can trace it
+                continue
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
         self.depth -= 1
         d(["check_block(): exited", self.current_token, "\n"])
 
@@ -1506,7 +1467,6 @@ class Styler(object):
             param_names = []
             self.check_whitespace(0)
             self.match(Type.LPAREN)
-#TODO need to chomp some args here and test naming
             #but for now
             if self.current_type() != Type.RPAREN:
                 self.check_whitespace(0)
@@ -1519,14 +1479,7 @@ class Styler(object):
                     param_names.append(self.current_token)
                     self.match(Type.UNKNOWN)
                 #strip array type indicators
-                while self.current_type() == Type.LSQUARE:
-                    self.match(Type.LSQUARE)
-                    self.check_whitespace(0)
-                    if self.current_type() != Type.RSQUARE:
-                        self.check_expression()
-                        self.check_whitespace(0)
-                    self.match(Type.RSQUARE)
-                    self.check_whitespace(0)
+                self.check_post_identifier()
                 while self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
                     self.match(Type.COMMA)
