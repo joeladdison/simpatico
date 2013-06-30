@@ -387,7 +387,7 @@ class Tokeniser(object):
 class Errors(object):
     """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
-            DEFINE, MISSING, CLOSING) = range(11)
+            DEFINE, MISSING, CLOSING, FILES) = range(12)
     def __init__(self):
         self.naming_d = {}
         self.whitespace_d = {}
@@ -400,16 +400,23 @@ class Errors(object):
     def naming(self, token, name_type):
         self.total += 1
         msg = "WHOOPS"
-        if name_type == Errors.TYPE:
-            msg = " misnamed, types should be NamedLikeThis"
-        elif name_type == Errors.FUNCTION:
-            msg = " misnamed, functions should be named_like_this"
-        elif name_type == Errors.DEFINE:
-            msg = " misnamed, #defines should be NAMED_LIKE_THIS"
-        elif name_type == Errors.VARIABLE:
-            msg = " misnamed, variables should be namedLikeThis"
-        self.naming_d[token.line_number] = "[NAMING] " + \
-                token.get_string() + msg
+        line_no = 1
+        name = ""
+        if name_type == Errors.FILES:
+            msg = " misnamed, files should be namedLikeThis.c"
+            name = token
+        else:
+            if name_type == Errors.TYPE:
+                msg = " misnamed, types should be NamedLikeThis"
+            elif name_type == Errors.FUNCTION:
+                msg = " misnamed, functions should be named_like_this"
+            elif name_type == Errors.DEFINE:
+                msg = " misnamed, #defines should be NAMED_LIKE_THIS"
+            elif name_type == Errors.VARIABLE:
+                msg = " misnamed, variables should be namedLikeThis"
+            name = token.get_string()
+            line_no = token.line_number
+        self.naming_d[line_no] = "[NAMING] " + name + msg
 
     def whitespace(self, token, expected):
         self.total += 1
@@ -491,9 +498,14 @@ class Styler(object):
         self.found_types = []
         self.included_files = []
         self.filename = filename
+        self.path = ""
+        if "/" in filename:
+            self.path = filename[:filename.rfind("/") + 1]
+        elif "\\" in filename:
+            self.path = filename[:filename.rfind("\\") + 1]
         #quick run for line lengths
         line_number = 0
-        self.infile = open(filename, "r")
+        self.infile = open(self.filename, "r")
         for line in self.infile:
             line_number += 1
             if len(line) > 79:
@@ -519,6 +531,13 @@ class Styler(object):
         except IndexError:
             #that'd be us finished
             pass
+        #before we're done with the file, check the filename style
+        if "/" in filename:
+            filename = filename[filename.rfind("/") + 1:]
+        elif "\\" in filename:
+            filename = filename[filename.rfind("\\") + 2:]
+        self.check_naming(filename, Errors.FILES)
+        
         #make sure no changes skip whitespace
         if DEBUG:
             for token in self.tokens:
@@ -874,7 +893,8 @@ class Styler(object):
                     exit(1)
             #custom header
             else:
-                fun_with_recursion = Styler(include_name[1:-1]) #" "
+                #strip the " from beginning and end, prepend with path
+                fun_with_recursion = Styler(self.path + include_name[1:-1])
                 new_types = fun_with_recursion.found_types
             d(["including", len(new_types), "types from", include_name])
             #add the types
@@ -910,6 +930,11 @@ class Styler(object):
         d(["updated token type for", count, "tokens"])
 
     def check_naming(self, token, name_type = Errors.VARIABLE):
+        if name_type == Errors.FILES:
+            name = token
+            if "_" in name:
+                self.errors.naming(token, name_type)
+            return
         name = token.line
         if name_type == Errors.VARIABLE:
             if "_" in name or len(name) == 1 and name.isupper():
