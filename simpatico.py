@@ -425,7 +425,7 @@ class Errors(object):
                 "[WHITESPACE] '", token.line, "' at ",
                 "position %d: expected %d whitespace, found %d " % \
                 (token.get_position(), expected, token.get_spacing_left())])
-        raw_input("pausing while you figure out why")
+        #raw_input("pausing while you figure out why")
         
     def line_length(self, line_number, length):
         self.total += 1
