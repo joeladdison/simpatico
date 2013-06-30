@@ -924,6 +924,7 @@ class Styler(object):
             if "_" in name or len(name) == 1 and name.isupper():
                 self.errors.naming(token, name_type)
         elif name_type == Errors.FUNCTION:
+            #if any uppercase char in the name, it's bad
             for c in name:
                 if c.isupper():
                     self.errors.naming(token, name_type)
@@ -981,6 +982,7 @@ class Styler(object):
         assert self.current_type() == Type.UNKNOWN #wasn't a type
         d(["check_typedef() adding type:", self.current_token.line])
         self.update_types([self.current_token.line])
+        self.check_naming(self.current_token, Errors.TYPE)
         self.match(Type.TYPE) #but now it is
         self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_typedef() exited", self.current_token])
@@ -1168,7 +1170,9 @@ class Styler(object):
     def check_expression(self):
         d(["check_exp(): entered", self.current_token])
         #the empty string/expression
-        if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA]:
+        if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA,
+                Type.SEMICOLON]:
+            d(["check_exp(): exited", self.current_token])
             return
         #repeatable unary ops
         if self.current_type() in [Type.STAR, Type.NOT]:
@@ -1179,11 +1183,6 @@ class Styler(object):
         elif self.current_type() in [Type.CREMENT, Type.AMPERSAND, Type.MINUS]:
             self.match()
             self.check_whitespace(0)
-        #is there even an expression here?
-        elif self.current_type() == Type.SEMICOLON:
-            #nothing to see here
-            d(["check_exp(): exited", self.current_token])
-            return
 
         #only identifiers, sizeof, constants and subexpressions should remain
         if self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
@@ -1401,8 +1400,7 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             if first._type == Type.UNKNOWN: #direct access deliberate
-                if first.line.upper() != first.line:
-                    self.errors.naming(first, Errors.DEFINE)
+                self.check_naming(first, Errors.DEFINE)
                 #complicated
                 if len(tokens) > 1:
                     for token in self.tokens:
