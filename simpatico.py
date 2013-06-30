@@ -1339,6 +1339,7 @@ class Styler(object):
             elif self.current_type() == Type.DO:
                 self.match(Type.DO)
                 self.check_do()
+                continue
             elif self.current_type() == Type.SWITCH:
                 self.match(Type.SWITCH)
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -1476,12 +1477,7 @@ class Styler(object):
             while self.current_type() == Type.COMMA:
                 self.check_whitespace(0)
                 self.match(Type.COMMA)
-                if self.current_type() == Type.LINE_CONT: # /
-#TODO: more checking here, probs
-                    self.check_whitespace(1)
-                    self.match(Type.LINE_CONT)
-                else:
-                    self.check_whitespace(1)
+                self.check_whitespace(1)
                 self.check_expression()
         self.check_whitespace(0)
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
