@@ -84,7 +84,7 @@ class Type(object):
     ANY = -1
     (   ERROR_TYPE, DEFINE, INCLUDE, COMMENT, NEWLINE, COMMA, LBRACE, RBRACE,
         LPAREN, RPAREN, MINUS, BINARY_OP, LOGICAL_OP, STAR,
-        AMPERSAND, TYPE, CREMENT, IGNORE, KW_EXTERN, BREAK, FOR, SWITCH, CASE,
+        AMPERSAND, TYPE, CREMENT, IGNORE, EXTERN, BREAK, FOR, SWITCH, CASE,
         STRUCT, CONTINUE, TYPEDEF, RETURN, UNKNOWN, CONSTANT, WHILE, DO,
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
         LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH
@@ -181,7 +181,7 @@ class Word(object):
         elif line in ["--", "++"]:
             self._type = Type.CREMENT
         elif line == Terminals.KW_EXTERN:
-            self._type = Type.KW_EXTERN
+            self._type = Type.EXTERN
         elif line == Terminals.KW_BREAK:
             self._type = Type.BREAK
         elif line == Terminals.KW_FOR:
@@ -782,6 +782,11 @@ class Styler(object):
                 self.check_declaration()
             elif self.current_type() == Type.UNKNOWN:
                 self.check_declaration(MISSING_TYPE)
+            elif self.current_type() == Type.EXTERN:
+                self.match(Type.EXTERN)
+                self.check_whitespace(1)
+                self.check_declaration(self.current_type() != Type.UNKNOWN, \
+                        Type.EXTERN)
             #function returning a function pointer, since it's complicated
             elif self.current_type() == Type.LPAREN:
                 d(["dealing with a function prototype return value"])
@@ -1483,7 +1488,7 @@ class Styler(object):
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         assert self.current_type() == Type.SEMICOLON
 
-    def check_declaration(self, match_types = True):
+    def check_declaration(self, match_types = True, external = False):
         d(["check_declaration() entered", self.current_token])
         if match_types:
             self.match_type()
@@ -1521,9 +1526,10 @@ class Styler(object):
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 #check the name, now that we're in the definition
-                self.check_naming(name, Errors.FUNCTION)
-                for param in param_names:
-                    self.check_naming(param, Errors.VARIABLE)
+                if not external:
+                    self.check_naming(name, Errors.FUNCTION)
+                    for param in param_names:
+                        self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
                 if self.previous_token().get_type() == Type.NEWLINE:
                     self.check_whitespace()
@@ -1542,7 +1548,8 @@ class Styler(object):
             return
         d(["decl is a var", self.previous_token()])
         #well, it's a non-func then
-        self.check_naming(self.previous_token(), Errors.VARIABLE)
+        if not external:
+            self.check_naming(self.previous_token(), Errors.VARIABLE)
         #is it an array?
         if self.current_type() == Type.LSQUARE:
             self.check_whitespace(0)
