@@ -1505,9 +1505,12 @@ class Styler(object):
             param_names = []
             self.check_whitespace(0)
             self.match(Type.LPAREN)
-            #but for now
-            if self.current_type() != Type.RPAREN:
+            #arg matching time
+            while self.current_type() != Type.RPAREN:
                 self.check_whitespace(0)
+                if self.current_type() == Type.COMMA:
+                    self.match(Type.COMMA)
+                    self.check_whitespace(1)
                 #types can be omitted if prototyped
                 if self.current_type() == Type.TYPE: 
                     self.match_type() #type
@@ -1518,22 +1521,6 @@ class Styler(object):
                     self.match(Type.UNKNOWN)
                 #strip array type indicators
                 self.check_post_identifier()
-                while self.current_type() == Type.COMMA:
-                    self.check_whitespace(0)
-                    self.match(Type.COMMA)
-                    self.check_whitespace(1)
-                    self.match_type()
-                    self.check_whitespace(1, ALLOW_ZERO) #pointers again
-                    self.match(Type.UNKNOWN)
-                    #strip array type indicators
-                    while self.current_type() == Type.LSQUARE:
-                        self.match(Type.LSQUARE)
-                        self.check_whitespace(0)
-                        if self.current_type() != Type.RSQUARE:
-                            self.check_expression()
-                            self.check_whitespace(0)
-                        self.match(Type.RSQUARE)
-                        self.check_whitespace(0)
             self.check_whitespace(0)
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
