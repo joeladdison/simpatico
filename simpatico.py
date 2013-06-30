@@ -1080,6 +1080,8 @@ class Styler(object):
             if self.current_type() != Type.SEMICOLON:
                 self.check_whitespace(1)
                 self.check_expression()
+        elif self.current_type() in [Type.LPAREN, Type.STAR, Type.UNKNOWN]:
+            self.check_expression()
         if not in_for:
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_statement(): exited", self.current_token])

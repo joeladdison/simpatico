@@ -162,7 +162,10 @@ int main(int argc, char **argv) {
     }
     switch (a) {
         case 0:
+        case 1:
             return 0;
+        case 2:
+            a++;
         default:
             break;
     }
