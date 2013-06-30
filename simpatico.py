@@ -759,6 +759,9 @@ class Styler(object):
         Only checking the types of tokens that can start lines in this
         context (compiler directives, prototypes, declarations, definitions).
         """
+        #clear out initial comments/newlines
+        if self.current_type() in [Type.NEWLINE, Type.COMMENT]:
+            self.match()
         while True:
             d(["global space: ", self.current_token])
             self.check_whitespace(0)
@@ -814,10 +817,7 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.RPAREN) #(*identifier(...))(...)
                 d(["finished with function prototype return value"])
-                if self.previous_token() == Type.NEWLINE:
-                    self.check_whitespace()
-                else:
-                    self.check_whitespace(1)
+                self.check_whitespace(1)
                 self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
@@ -826,10 +826,6 @@ class Styler(object):
             elif self.current_type() == Type.IGNORE:
                 self.match()
                 self.check_declaration()
-            #skippable
-            elif self.current_type() in [Type.NEWLINE, Type.COMMENT]:
-                self.match(Type.ANY, MUST_NEWLINE)
-                continue
             #struct definition/declaration
             elif self.current_type() == Type.STRUCT:
                 self.match()
@@ -1055,10 +1051,7 @@ class Styler(object):
         self.check_block()
         self.match(Type.RBRACE, NO_NEWLINE, MUST_NEWLINE)
         self.match(Type.WHILE)
-        self.match(Type.LPAREN)
-        if self.current_type() != Type.RPAREN:
-            self.check_expression() # exp )
-        self.match(Type.RPAREN)
+        self.check_condition()
         self.match(Type.SEMICOLON, MUST_NEWLINE)
 
     def check_switch(self):
@@ -1408,7 +1401,7 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             if first._type == Type.UNKNOWN: #direct access deliberate
-                if "".join(first.line).upper() != "".join(first.line):
+                if first.line.upper() != first.line:
                     self.errors.naming(first, Errors.DEFINE)
                 #complicated
                 if len(tokens) > 1:
@@ -1514,10 +1507,9 @@ class Styler(object):
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 #check the name, now that we're in the definition
-                if not external:
-                    self.check_naming(name, Errors.FUNCTION)
-                    for param in param_names:
-                        self.check_naming(param, Errors.VARIABLE)
+                self.check_naming(name, Errors.FUNCTION)
+                for param in param_names:
+                    self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
                 if self.previous_token().get_type() == Type.NEWLINE:
                     self.check_whitespace()
