@@ -22,7 +22,7 @@
 extern int errno;
 
 /* these two vars are for testing type-qualifiers */
-static long int stat = 0532;
+static long int stat = 0532L;
 volatile unsigned char vuc;
 
 /* this is testing the #include "dummy" correctly checks type */
@@ -30,7 +30,7 @@ RidiculousIntType heresAnotherGlobal = 0b01010; // a GCC extension
 
 typedef struct Struct {
     char contents;
-} Struct;
+} Struct; // not really wise
 
 struct Nested {
     Struct s;
@@ -54,10 +54,11 @@ void proto(int);
 
 /* fun with 'arry */
 void arry(int potter[]) {
+    float f = 0.3f;
 }
 
 /* the definition of that prototype */
-void proto(param) { // with included omitted type DO NOT DO THIS, SILLY PEOPLE
+void proto(param) { // with bonus omitted type. DO NOT DO THIS, SILLY PEOPLE
 }
 
 /* a global int, declare it this way and face terrible vengeance with a bunch
@@ -65,7 +66,7 @@ void proto(param) { // with included omitted type DO NOT DO THIS, SILLY PEOPLE
 weirdGlobal;
 
 /* here's an array of function pointers */
-//int (*funcArray[3])(int, int) = {NULL, NULL, NULL};
+int (*funcArray[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
 (*func_b(void))(char *, int) {

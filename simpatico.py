@@ -707,7 +707,8 @@ class Styler(object):
         if self.current_type() == Type.UNKNOWN:
             print "iunno about this type you're giving me, it's unknown"
             assert False
-        assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]
+        assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
+                Type.LPAREN]
         if self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.match()
             while self.current_type() in [Type.TYPE, Type.IGNORE]:           
@@ -724,25 +725,39 @@ class Styler(object):
             self.check_whitespace(1)
             self.match(Type.LPAREN) #(
             self.check_whitespace(0)
-            #allow for pointers to pointers
-            while self.current_type() == Type.STAR:
+            if self.current_type() == Type.STAR:
                 self.match(Type.STAR) #(*
                 self.check_whitespace(0)
             #allow for non-declaration
             if self.current_type() == Type.UNKNOWN:
-                self.match(Type.UNKNOWN) #(id
+                name = self.current_token
+                self.match(Type.UNKNOWN) #(*id
                 self.check_whitespace(0)
-            self.match(Type.LPAREN) #(id(
-            self.check_whitespace(0)
-            if self.current_type() != Type.RPAREN:
-                self.match_type() #(id(types
-                while self.current_type() == Type.COMMA:
+                #this could very well be an array type, so check for indicies
+                while self.current_type() == Type.LSQUARE:
+                    self.match(Type.LSQUARE)
                     self.check_whitespace(0)
-                    self.match(Type.COMMA)
-                    self.check_whitespace(1)
-                    self.match_type() #(id(types,types
-            self.check_whitespace(0)
-            self.match(Type.RPAREN) #(id(types,types)
+                    self.check_expression() #static size
+                    self.check_whitespace(0)
+                    self.match(Type.RSQUARE)
+                #is this a function returning a func pointer?
+                if self.current_type() == Type.LPAREN:
+                    self.check_naming(name, Errors.FUNCTION)
+                else:
+                    self.check_naming(name, Errors.VARIABLE)
+            #now, is this a function itself
+            if self.current_type() == Type.LPAREN:
+                self.match(Type.LPAREN) #(id(
+                self.check_whitespace(0)
+                if self.current_type() != Type.RPAREN:
+                    self.match_type() #(id(types
+                    while self.current_type() == Type.COMMA:
+                        self.check_whitespace(0)
+                        self.match(Type.COMMA)
+                        self.check_whitespace(1)
+                        self.match_type() #(id(types,types
+                self.check_whitespace(0)
+                self.match(Type.RPAREN) #(id(types,types)
             self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types))
         # strip the pointers if they're there
@@ -769,8 +784,9 @@ class Styler(object):
             if self.current_type() == Type.HASH:
                 self.check_precompile()
             #declaration
-            elif self.current_type() == Type.TYPE:
+            elif self.current_type() in [Type.TYPE, Type.LPAREN]:
                 self.check_declaration()
+            #declaration missing a leading type
             elif self.current_type() == Type.UNKNOWN:
                 self.check_declaration(MISSING_TYPE)
             elif self.current_type() == Type.EXTERN:
@@ -778,50 +794,6 @@ class Styler(object):
                 self.check_whitespace(1)
                 self.check_declaration(self.current_type() != Type.UNKNOWN, \
                         Type.EXTERN)
-            #function returning a function pointer, since it's complicated
-            elif self.current_type() == Type.LPAREN:
-                d(["dealing with a function prototype return value"])
-                #example is (*identifier())(char *, int)
-                self.match(Type.LPAREN) #(
-                self.check_whitespace(0)
-                self.match(Type.STAR) #(*
-                self.check_naming(self.current_token, Errors.FUNCTION)
-                self.check_whitespace(1, ALLOW_ZERO)
-                self.match(Type.UNKNOWN) #(*identifier
-                self.check_whitespace(0)
-                self.match(Type.LPAREN) #(*identifier(
-                #match args to this func (including naming checks)
-                self.check_whitespace(0)
-                if self.current_type() != Type.RPAREN:
-                    self.check_declaration()
-                    while self.current_type() == Type.COMMA:
-                        self.check_whitespace(1)
-                        self.match(Type.COMMA)
-                        self.check_whitespace(0)
-                        self.check_declaration()
-                    self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*identifier()
-                self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*identifier())
-                self.check_whitespace(0)
-                self.match(Type.LPAREN) #(*identifier())(
-                self.check_whitespace(0)
-                #match types of function pointer
-                if self.current_type() != Type.RPAREN:
-                    self.match_type()
-                    self.check_whitespace(0)
-                    while self.current_type() == Type.COMMA:
-                        self.match(Type.COMMA)
-                        self.check_whitespace(1)
-                        self.match_type()
-                self.check_whitespace(0)
-                self.match(Type.RPAREN) #(*identifier(...))(...)
-                d(["finished with function prototype return value"])
-                self.check_whitespace(1)
-                self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
-                self.check_block()
-                self.check_whitespace()
-                self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             #type qualifiers
             elif self.current_type() == Type.IGNORE:
                 self.match()
@@ -1049,10 +1021,11 @@ class Styler(object):
         self.match(Type.RPAREN)
 
     def check_do(self):
-        self.match(Type.LBRACE, MUST_NEWLINE)
-        self.check_block()
-        self.match(Type.RBRACE, NO_NEWLINE, MUST_NEWLINE)
+        self.check_whitespace(1)
+        self.should_have_block(Type.DO)
+        self.check_whitespace(1)
         self.match(Type.WHILE)
+        self.check_whitespace(1, ALLOW_ZERO)
         self.check_condition()
         self.match(Type.SEMICOLON, MUST_NEWLINE)
 
@@ -1184,8 +1157,12 @@ class Styler(object):
             self.match()
             self.check_whitespace(0)
 
+        #array initialisers are special
+        if self.current_type() in [Type.LBRACE]:
+            self.check_array_assignment()
+        #but if not array, then
         #only identifiers, sizeof, constants and subexpressions should remain
-        if self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
+        elif self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
                 Type.SIZEOF, Type.LPAREN]:
             d(["check_exp(): unexpected token:", self.current_token])
             assert False #crash this thing so we can trace it
@@ -1477,8 +1454,11 @@ class Styler(object):
         else:
             d(["skipping types, match_types = False"])
         array = False
-        name = self.current_token
-        self.match(Type.UNKNOWN)
+        name = None
+        #if we're dealing with a function pointer, no following identifer
+        if self.current_type() == Type.UNKNOWN:
+            name = self.current_token
+            self.match(Type.UNKNOWN)
         #is this a function?
         if self.current_type() == Type.LPAREN:
             d(["decl is a func", self.previous_token()])
@@ -1499,13 +1479,14 @@ class Styler(object):
                 if self.current_type() == Type.UNKNOWN:
                     param_names.append(self.current_token)
                     self.match(Type.UNKNOWN)
-                #strip array type indicators
-                self.check_post_identifier()
+                    #strip array type indicators
+                    self.check_post_identifier()
             self.check_whitespace(0)
             self.match(Type.RPAREN)
             if self.current_type() == Type.LBRACE:
                 #check the name, now that we're in the definition
-                self.check_naming(name, Errors.FUNCTION)
+                if name:
+                    self.check_naming(name, Errors.FUNCTION)
                 for param in param_names:
                     self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
@@ -1520,6 +1501,12 @@ class Styler(object):
                 func_length = self.current_token.line_number - start_line
                 if func_length >= 50:
                     self.errors.func_length(start_line, func_length)
+            elif self.current_type() == Type.ASSIGNMENT:
+                self.check_whitespace(1)
+                self.match(Type.ASSIGNMENT)
+                self.check_whitespace(1)
+                self.check_expression()
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             else:
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             d(["check_declaration() exited a func", self.current_token])
@@ -1527,16 +1514,11 @@ class Styler(object):
         d(["decl is a var", self.previous_token()])
         #well, it's a non-func then
         if not external:
-            self.check_naming(self.previous_token(), Errors.VARIABLE)
+            self.check_naming(name, Errors.VARIABLE)
         #is it an array?
         if self.current_type() == Type.LSQUARE:
-            self.check_whitespace(0)
-            self.match(Type.LSQUARE)
-            self.check_expression()
-            self.check_whitespace(0)
-            self.match(Type.RSQUARE)
             array = True
-            
+            self.check_post_identifier()            
         #token will now be , or = or ;
         if self.current_type() == Type.ASSIGNMENT:
             self.check_whitespace(1)
