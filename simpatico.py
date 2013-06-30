@@ -299,8 +299,6 @@ class Tokeniser(object):
                     self.end_word()
                     self.line_number += 1
                     self.line_start = n + 1
-                else:
-                    continue
 
             #step 2: continue on while inside a multiline comment
             elif self.multiline_comment:
@@ -483,6 +481,7 @@ class Errors(object):
                 self.braces_d, self.whitespace_d, self.comments_d,
                 self.naming_d, self.func_length_d, self.line_length_d
                 ]]
+        #cap the violations to 5 per category
         for i in range(len(counts)):
             if counts[i] > 5:
                 counts[i] = 5
@@ -667,32 +666,21 @@ class Styler(object):
     def previous_token(self):
         return self.tokens[self.position - 1]
 
-    def peek(self):
-        i = self.position + 1
-        while self.tokens[i].get_type() in [Type.COMMENT, Type.NEWLINE,
-                Type.LINE_CONT]:
-            i += 1
-        return self.tokens[i]
-    
     def has_matching_else(self):
         d(["has matching_else: starting at ", self.current_token])
         i = self.position
         depth = 0
-        try:
-            while self.tokens[i].get_type() not in [Type.IF, Type.RBRACE,
-                    Type.ELSE]:
-                i += 1
-                if self.tokens[i].get_type() == Type.RBRACE:
-                    depth -= 1
-                    if depth >= 0:
-                        i += 1
-                elif self.tokens[i].get_type() == Type.LBRACE:
-                    depth += 1
-            d(["has matching_else: ending at ", self.tokens[i]])
-            return self.tokens[i].get_type() == Type.ELSE
-        except IndexError:
-            d(["has matching_else: hit end of file"])
-            return False
+        while self.tokens[i].get_type() not in [Type.IF, Type.RBRACE,
+                Type.ELSE]:
+            i += 1
+            if self.tokens[i].get_type() == Type.RBRACE:
+                depth -= 1
+                if depth >= 0:
+                    i += 1
+            elif self.tokens[i].get_type() == Type.LBRACE:
+                depth += 1
+        d(["has matching_else: ending at ", self.tokens[i]])
+        return self.tokens[i].get_type() == Type.ELSE
 
     def write_output_file(self, filename):
         """go over the file and insert messages when appropriate"""
@@ -1513,7 +1501,7 @@ class Styler(object):
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
                 #types can be omitted if prototyped
-                if self.current_type() == Type.TYPE: 
+                if self.current_type() in [Type.TYPE, Type.STRUCT]: 
                     self.match_type() #type
                     self.check_whitespace(1, ALLOW_ZERO)
                 #identifiers can be ommitted in a prototype
