@@ -718,9 +718,7 @@ class Styler(object):
         d(["match_type(): entered", self.current_token])
         if self.current_type() == Type.UNKNOWN:
             print "iunno about this type you're giving me, it's unknown"
-            print "FILE" == self.current_token.line
-            print self.current_token.line in self.found_types
-            print self.included_files
+            assert False
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]
         if self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.match()
@@ -900,9 +898,6 @@ class Styler(object):
             #add the types
             self.update_types(new_types)
             self.included_files.append(include_name)
-            if 'FILE' in new_types:
-                print "yep, file"
-            print self.included_files
             #raw_input()
         #define
         elif self.current_type() == Type.DEFINE:
@@ -1116,10 +1111,6 @@ class Styler(object):
         if self.current_type() == Type.TYPE:
             self.check_declaration()
             self.match(Type.SEMICOLON, MUST_NEWLINE)
-        elif self.current_type() == Type.UNKNOWN:
-            self.check_expression()
-        if self.current_type() == Type.LPAREN:
-            self.check_expression()
         elif self.current_type() == Type.BREAK:
             self.match(Type.BREAK)
         elif self.current_type() == Type.RETURN:
@@ -1128,8 +1119,6 @@ class Styler(object):
             if self.current_type() != Type.SEMICOLON:
                 self.check_whitespace(1)
                 self.check_expression()
-        elif self.current_type() == Type.CREMENT:
-            self.check_expression()
         if not in_for:
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_statement(): exited", self.current_token])
@@ -1452,24 +1441,48 @@ class Styler(object):
                             self.tokens[n]._type = tokens[0]._type
         
     def check_array_assignment(self):
-        if self.current_type() == Type.UNKNOWN:
+        if self.current_type() in [Type.UNKNOWN, Type.CONSTANT]:
             #assignment is to another variable
             self.check_whitespace(1)
-            self.match() # identifier
+            self.check_expression()
             return
         self.match(Type.LBRACE, MAY_NEWLINE)
         self.check_whitespace(0)
-        self.check_expression()
-        while self.current_type() == Type.COMMA:
+        #partial init
+        if self.current_type() == Type.LSQUARE:
+            self.match(Type.LSQUARE)
             self.check_whitespace(0)
-            self.match(Type.COMMA)
-            if self.current_type() == Type.LINE_CONT: # /
-#TODO: more checking here, probs
-                self.check_whitespace(1)
-                self.match(Type.LINE_CONT)
-            else:
-                self.check_whitespace(1)
             self.check_expression()
+            self.check_whitespace(0)
+            self.match(Type.RSQUARE)
+            self.check_whitespace(1)
+            self.match(Type.ASSIGNMENT)
+            self.check_whitespace(1)
+            self.check_expression()
+            while self.current_type() == Type.COMMA:
+                self.match(Type.COMMA)
+                self.match(Type.LSQUARE)
+                self.check_whitespace(0)
+                self.check_expression()
+                self.check_whitespace(0)
+                self.match(Type.RSQUARE)
+                self.check_whitespace(1)
+                self.match(Type.ASSIGNMENT)
+                self.check_whitespace(1)
+                self.check_expression()
+        #complete init
+        else:
+            self.check_expression()
+            while self.current_type() == Type.COMMA:
+                self.check_whitespace(0)
+                self.match(Type.COMMA)
+                if self.current_type() == Type.LINE_CONT: # /
+#TODO: more checking here, probs
+                    self.check_whitespace(1)
+                    self.match(Type.LINE_CONT)
+                else:
+                    self.check_whitespace(1)
+                self.check_expression()
         self.check_whitespace(0)
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         assert self.current_type() == Type.SEMICOLON
