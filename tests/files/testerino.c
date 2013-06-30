@@ -22,11 +22,11 @@
 extern int errno;
 
 /* these two vars are for testing type-qualifiers */
-static long int stat;
+static long int stat = 0532;
 volatile unsigned char vuc;
 
 /* this is testing the #include "dummy" correctly checks type */
-RidiculousIntType heresAnotherGlobal;
+RidiculousIntType heresAnotherGlobal = 0b01010; // a GCC extension
 
 typedef struct Struct {
     char contents;
@@ -37,7 +37,7 @@ struct Nested {
     struct Nested *n;
 } __attribute__ ((aligned)); 
 /* don't touch __attribute__ unless you really know what you're doing,
- * especially if you think you'll be compiling with not gcc (hint: bad things)
+ * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
 
 /* commented global */
@@ -68,16 +68,23 @@ weirdGlobal;
 //int (*funcArray[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
-(*func_b())(char *, int) {
+(*func_b(void))(char *, int) {
+    int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
+    a++;
+    return &func_a;
+}
+
+/* func_b, but this time missing args */
+(*func_b_mk2())(char *, int) {
     int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }
 
 /* commented function pointer (takes function pointer as an arg) */
-int func_c(int (func_ptr(char *, int)), int i)
+int func_c(int (*func_ptr(char *, int)), int i)
 { // linebreaks before opening braces with functions are A-OK
-    return func_ptr("test", i);
+    return *func_ptr("test", i);
 }
 
 /* to test line continuations */
@@ -87,6 +94,8 @@ void if_continutation(void) {
     if (1 && 2 && \
             3 && 4) {
         a <<= 1;
+        a |= 0x01;
+        a &= 0x10;
     } else if (5 && 7
         && 6) {
         a >>= 1;
