@@ -478,7 +478,7 @@ class Errors(object):
 
     def __repr__(self):
         if not self.total:
-            return "no errors found"
+            return "No errors found"
         counts = [len(error_type.keys()) for error_type in [
                 self.braces_d, self.whitespace_d, self.comments_d,
                 self.naming_d, self.func_length_d, self.line_length_d
@@ -615,7 +615,7 @@ class Styler(object):
             if old.get_type() == Type.RBRACE:
                 self.errors.braces(old, Errors.ELSE)
             if old.get_type() not in [Type.SEMICOLON, Type.LBRACE]:
-                pass #self.line_continuation = True
+                self.line_continuation = True
         # check for missing post-token newlines
         elif post_newline == MUST_NEWLINE \
                 and self.current_type() not in [Type.NEWLINE,
@@ -778,6 +778,7 @@ class Styler(object):
         """
         while True:
             d(["global space: ", self.current_token])
+            self.line_continuation = False
             self.check_whitespace(0)
             #check for compiler directives that aren't #define
             if self.current_type() == Type.HASH:
@@ -1496,7 +1497,7 @@ class Styler(object):
                     #strip array type indicators
                     self.check_post_identifier()
             self.check_whitespace(0)
-            self.match(Type.RPAREN)
+            self.match(Type.RPAREN, MAY_NEWLINE)
             if self.current_type() == Type.LBRACE:
                 #check the name, now that we're in the definition
                 if name:
