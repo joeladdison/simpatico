@@ -127,6 +127,7 @@ int main(int argc, char **argv) {
 #define INIT_NESTED(x) {.s = s, .n = x}
     struct Nested u = INIT_NESTED(NULL);
 #undef INIT_NESTED
+    Struct *p = &s;
     d[0] = 1;
     3;
     {
@@ -138,10 +139,23 @@ int main(int argc, char **argv) {
         b = a | b | f;
     } else if (a) {
         int wizard[] = {1, 2, 3};
+        if (wizard) {
+        } else if (a) {
+        } else {
+        }
         char robe[] = "robe";
         char hat[] = {"hat"};
         int arry[7] = {[2] = 3, [4] = 2}; //init only some members
     } else {
+    }
+    if(p->contents%2 == 0) {
+        a = 'O';
+    } else if(p->contents%2 != 0) {
+        a = 'X';
+    }
+    if(p->contents == 1) {
+        p->contents = NULL;
+        return;
     }
     //a = 0 ? a : b;
     for (int x = 0; x < 1; x++) {
