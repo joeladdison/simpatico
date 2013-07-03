@@ -8,7 +8,7 @@ import sys
 import headers
 
 
-DEBUG = False
+DEBUG = True
 STOP_ON_MISSED_WHITESPACE = DEBUG and True
 STOP_ON_DUPLICATED_WHITESPACE_CHECK = DEBUG and True
 
@@ -394,7 +394,7 @@ class Errors(object):
         self.comments_d = {}
         self.braces_d = {}
         self.line_length_d = {}
-        self.func_length_d = {}
+        self.overall_d = {}
         self.total = 0
 
     def naming(self, token, name_type):
@@ -421,20 +421,30 @@ class Errors(object):
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
+        if self.whitespace_d.get(token.line_number):
+            return
         self.whitespace_d[token.line_number] = "".join([
                 "[WHITESPACE] '", token.line, "' at ",
                 "position %d: expected %d whitespace, found %d " % \
                 (token.get_position(), expected, token.get_spacing_left())])
-        #raw_input("pausing while you figure out why")
         
     def line_length(self, line_number, length):
         self.total += 1
-        self.line_length_d[line_number] = "line is %d chars long" % length
+        self.line_length_d[line_number] = "[LINE-LENGTH] line is " + \
+                "%d chars long" % length
 
     def func_length(self, line_number, length):
         self.total += 1
-        self.func_length_d[line_number] = "[OVERALL] Function length of" \
-                + " %d is over the maximum of 50" % length
+        if not self.overall_d.get(line_number):
+            self.overall_d[line_number] = []
+        self.overall_d[line_number].append("[OVERALL] Function length of" \
+                + " %d is over the maximum of 50" % length)
+
+    def overall(self, line_number, message):
+        self.total += 1
+        if not self.overall_d.get(line_number):
+            self.overall_d[line_number] = []
+        self.overall_d[line_number].append("[OVERALL] %s" % message)        
 
     def braces(self, token, error_type):
         self.total += 1
@@ -464,25 +474,26 @@ class Errors(object):
     def get(self, line_number):
         result = []
         for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.func_length_d,
+                self.line_length_d, self.naming_d, self.overall,
                 self.comments_d]:
             result.extend(error_type.get(line_number, []))
         return result
 
     def print_lines(self):
         for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.func_length_d,
-                self.comments_d]:
+                self.line_length_d, self.naming_d, self.comments_d]:
             for key in sorted(error_type.keys()):
                 print "line", key, ":", error_type[key]
+        for key in sorted(self.overall_d.keys()):
+            for line in self.overall_d[key]:
+                print "line", key, ":", line
 
     def __repr__(self):
         if not self.total:
             return "No errors found"
         counts = [len(error_type.keys()) for error_type in [
                 self.braces_d, self.whitespace_d, self.comments_d,
-                self.naming_d, self.func_length_d, self.line_length_d
-                ]]
+                self.naming_d, self.overall_d, self.line_length_d]]
         #cap the violations to 5 per category
         for i in range(len(counts)):
             if counts[i] > 5:
@@ -520,6 +531,7 @@ class Styler(object):
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
         self.current_token = self.tokens[self.position]
+        self.last_real_token = None
         try:
             while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
                 d(["pre-process: skipping newline/comment", self.current_token])
@@ -558,10 +570,23 @@ class Styler(object):
     def current_type(self):
         return self.current_token.get_type()    
 
+    def previous_token(self):
+        if self.current_token.inner_tokens:
+            return self.current_token.inner_token[ \
+                    self.current_token.inner_position - 1]
+        return self.tokens[self.position - 1]
+
+    def peek(self):
+        i = self.position + 1
+        while self.tokens[i].get_type() in [Type.COMMENT, Type.NEWLINE]:
+            i += 1
+        return self.tokens[i]
+
     def match(self, req_type = Type.ANY, post_newline = NO_NEWLINE,
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
+        self.last_real_token = self.current_token
         if STOP_ON_MISSED_WHITESPACE and old.get_type() not in [Type.NEWLINE,
                 Type.COMMENT]:
             assert old.whitespace_checked != 0
@@ -593,7 +618,9 @@ class Styler(object):
                     Type.COMMENT]:
                 if pre_newline == NO_NEWLINE:
                     err = Errors.IF
-                    if self.peek().get_type() == Type.ELSE:
+                    print self.last_real_token, self.peek()
+                    if Type.ELSE in [self.last_real_token.get_type(),
+                            self.peek().get_type()]:
                         err = Errors.ELSE
                     self.errors.braces(self.current_token, err)
             else: #previous wasn't a newline but should've been
@@ -603,34 +630,30 @@ class Styler(object):
         self.position += 1
         self.current_token = self.tokens[self.position] #deliberately unsafe
         
-        # clear comments
-        while self.current_type() == Type.COMMENT:
-            self.comments[self.current_token.line_number] = True
+        # clear the trash
+        while self.current_type() in [Type.COMMENT, Type.NEWLINE,
+                Type.LINE_CONT]:
+            if self.current_type() == Type.COMMENT:
+                self.comments[self.current_token.line_number] = True
             self.position += 1
             self.current_token = self.tokens[self.position]
        
         # check for extra post-token newlines
-        if post_newline == NO_NEWLINE and self.current_type() \
-                in [Type.NEWLINE, Type.LINE_CONT, Type.COMMENT]:
+        if post_newline == NO_NEWLINE and self.last_real_token.line_number \
+                != self.current_token.line_number:
             if old.get_type() == Type.RBRACE:
                 self.errors.braces(old, Errors.ELSE)
             if old.get_type() not in [Type.SEMICOLON, Type.LBRACE]:
                 self.line_continuation = True
         # check for missing post-token newlines
-        elif post_newline == MUST_NEWLINE \
-                and self.current_type() not in [Type.NEWLINE,
-                Type.LINE_CONT, Type.COMMENT]:
+        if post_newline == MUST_NEWLINE and self.last_real_token.line_number \
+                == self.current_token.line_number:
             if old.get_type() not in [Type.LBRACE, Type.RBRACE]:
                 pass #TODO for now, might have to add semicolon checks
             elif self.tokens[self.position-2].get_type() == Type.ELSE:
-                self.errors.braces(self.previous_token(), Errors.ELSE)
+                self.errors.braces(self.last_real_token, Errors.ELSE)
             else:
-                self.errors.braces(self.previous_token(), Errors.RUNON)
-        # consume all the newlines that may or may not have been there
-        while self.current_type() in [Type.NEWLINE, Type.LINE_CONT,
-                Type.COMMENT]:
-            self.position += 1
-            self.current_token = self.tokens[self.position]
+                self.errors.braces(self.last_real_token, Errors.RUNON)
 
     def check_whitespace(self, expected = -1, one_or_zero = not ALLOW_ZERO):
         token = self.current_token
@@ -660,9 +683,6 @@ class Styler(object):
             self.errors.whitespace(token, expected)
         if self.line_continuation:
             self.line_continuation = False
-
-    def previous_token(self):
-        return self.tokens[self.position - 1]
 
     def has_matching_else(self):
         d(["has matching_else: starting at ", self.current_token])
@@ -723,7 +743,7 @@ class Styler(object):
             self.match(Type.UNKNOWN)
         # check if function pointer (preceeded by type, that's why not elif)
         if self.current_type() == Type.LPAREN:
-            if self.previous_token().get_type() == Type.TYPE:
+            if self.last_real_token.get_type() == Type.TYPE:
                 self.check_whitespace(1)
             self.match(Type.LPAREN) #(
             self.check_whitespace(0)
@@ -860,7 +880,7 @@ class Styler(object):
         elif self.current_type() == Type.DEFINE:
             self.match(Type.DEFINE, MAY_NEWLINE)
             #was it just an include guard?
-            if self.previous_token().get_type() != Type.NEWLINE:
+            if self.last_real_token.get_type() != Type.NEWLINE:
                 self.check_define()
 #TODO undefine
         elif self.current_type() == Type.PRECOMPILER:
@@ -1209,7 +1229,8 @@ class Styler(object):
             self.check_sizeof()
             
         #now test for a following operator
-        if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR]:
+        if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
+                Type.TERNARY, Type.COLON]:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             self.check_whitespace(1, ALLOW_ZERO)
@@ -1316,7 +1337,7 @@ class Styler(object):
             elif self.current_type() == Type.IF:
                 self.match(Type.IF)
                 has_else = self.has_matching_else()
-                d(["check_block(): ", self.previous_token(), 
+                d(["check_block(): ", self.last_real_token, 
                         " has else:", has_else])
                 self.check_condition()
                 self.should_have_block(has_else)
@@ -1327,7 +1348,7 @@ class Styler(object):
                         self.check_whitespace(1, ALLOW_ZERO)
                         self.match(Type.IF)
                         has_else = self.has_matching_else()
-                        d(["check_block(): ", self.previous_token(), 
+                        d(["check_block(): ", self.last_real_token, 
                                 " has else:", has_else])
                         self.check_condition()
                         self.should_have_block(has_else)
@@ -1352,7 +1373,8 @@ class Styler(object):
         d(["check_block(): exited", self.current_token, "\n"])
 
     def check_define(self):
-#TODO mark it to be manually checked, since it's haaard to parse
+#TODO mark it to be manually checked
+# since we can't tell here what they're doing
         self.check_whitespace(1)
         first = self.current_token
         #before we match, we just want to know what's coming next, since match
@@ -1368,7 +1390,6 @@ class Styler(object):
                 self.current_token.get_spacing_left() == 0:
             self.check_whitespace(0)
             #consume until newline for now
-            #TODO but will have to be fixed later in case of awkwardness
             while self.current_type() != Type.NEWLINE:
                 self.position += 1
                 self.current_token = self.tokens[self.position]
@@ -1505,7 +1526,8 @@ class Styler(object):
                 for param in param_names:
                     self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
-                if self.previous_token().get_type() == Type.NEWLINE:
+                if self.last_real_token.line_number != \
+                        self.current_token.line_number:
                     self.check_whitespace()
                 else:
                     self.check_whitespace(1)
@@ -1528,7 +1550,7 @@ class Styler(object):
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             d(["check_declaration() exited a func", self.current_token])
             return
-        d(["decl is a var", self.previous_token()])
+        d(["decl is a var", self.last_real_token])
         #well, it's a non-func then
         if not external:
             self.check_naming(name, Errors.VARIABLE)

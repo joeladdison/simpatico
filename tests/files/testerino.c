@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
         p->contents = NULL;
         return;
     }
-    //a = 0 ? a : b;
+    a = 0 ? a : b;
     for (int x = 0; x < 1; x++) {
         fprintf(stderr, "testerino\"\n"); //prints: testerino"
     }
