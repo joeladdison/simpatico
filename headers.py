@@ -341,7 +341,30 @@ standard_header_types = {
         "__pthread_slist_t", "pthread_mutex_t", "pthread_mutexattr_t",
         "pthread_cond_t", "pthread_condattr_t", "pthread_key_t",
         "pthread_once_t", "pthread_rwlock_t", "pthread_rwlockattr_t",
-        "pthread_spinlock_t", "pthread_barrier_t", "pthread_barrierattr_t"]
+        "pthread_spinlock_t", "pthread_barrier_t", "pthread_barrierattr_t"],
+"semaphore.h" : ["__u_char", "__u_short", "__u_int", "__u_long", "__int8_t",
+        "__uint8_t", "__int16_t", "__uint16_t", "__int32_t", "__uint32_t",
+        "__int64_t", "__uint64_t", "__quad_t", "__u_quad_t", "__dev_t",
+        "__uid_t", "__gid_t", "__ino_t", "__ino64_t", "__mode_t", "__nlink_t",
+        "__off_t", "__off64_t", "__pid_t", "__fsid_t", "__clock_t", "__rlim_t",
+        "__rlim64_t", "__id_t", "__time_t", "__useconds_t", "__suseconds_t",
+        "__daddr_t", "__swblk_t", "__key_t", "__clockid_t", "__timer_t",
+        "__blksize_t", "__blkcnt_t", "__blkcnt64_t", "__fsblkcnt_t",
+        "__fsblkcnt64_t", "__fsfilcnt_t", "__fsfilcnt64_t", "__ssize_t",
+        "__loff_t", "__qaddr_t", "__caddr_t", "__intptr_t", "__socklen_t",
+        "u_char", "u_short", "u_int", "u_long", "quad_t", "u_quad_t", "fsid_t",
+        "loff_t", "ino_t", "dev_t", "gid_t", "mode_t", "nlink_t", "uid_t",
+        "off_t", "pid_t", "id_t", "ssize_t", "daddr_t", "caddr_t", "key_t",
+        "clock_t", "time_t", "clockid_t", "timer_t", "size_t", "ulong",
+        "ushort", "uint", "__sig_atomic_t", "__sigset_t", "sigset_t",
+        "suseconds_t", "__fd_mask", "fd_set", "fd_mask", "blksize_t",
+        "blkcnt_t", "fsblkcnt_t", "fsfilcnt_t", "pthread_t", "pthread_attr_t",
+        "__pthread_slist_t", "pthread_mutex_t", "pthread_mutexattr_t",
+        "pthread_cond_t", "pthread_condattr_t", "pthread_key_t",
+        "pthread_once_t", "pthread_rwlock_t", "pthread_rwlockattr_t",
+        "pthread_spinlock_t", "pthread_barrier_t", "pthread_barrierattr_t",
+        "sem_t"],
+"stdbool.h" : ["bool", "_Bool"]
 }
 
 
