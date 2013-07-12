@@ -8,8 +8,8 @@ import sys
 import headers
 
 
-DEBUG = True
-STOP_ON_MISSED_WHITESPACE = DEBUG and True
+DEBUG = False
+STOP_ON_MISSED_WHITESPACE = DEBUG and False
 STOP_ON_DUPLICATED_WHITESPACE_CHECK = DEBUG and True
 
 INDENT_SIZE = 4
@@ -252,7 +252,7 @@ class Tokeniser(object):
         self.in_singleline_comment = False
         self.deal_breakers = [' ', '.', '-', '+', '/', '*', '>', '<', '&',
                 '|', '!', '~', '%', '^', '(', ')', '{', '}', ';', ',', ':',
-                '?', '[', ']', '#']
+                '?', '[', ']', '#', '=']
         self.current_word = Word()
         self.space_left = 0
         self.current_word_start = 1
@@ -378,6 +378,7 @@ class Tokeniser(object):
                     #... END THEM
                     self.add_to_word(c, n - self.line_start)
                     self.end_word()
+                    
             else:
                 self.add_to_word(c, n - self.line_start)
 
@@ -743,6 +744,7 @@ class Styler(object):
             self.match(Type.UNKNOWN)
         # check if function pointer (preceeded by type, that's why not elif)
         if self.current_type() == Type.LPAREN:
+            d(["this type is a function pointer"])
             if self.last_real_token.get_type() == Type.TYPE:
                 self.check_whitespace(1)
             self.match(Type.LPAREN) #(
@@ -753,6 +755,7 @@ class Styler(object):
             #allow for non-declaration
             if self.current_type() == Type.UNKNOWN:
                 name = self.current_token
+                d(["found identifier", name])
                 self.match(Type.UNKNOWN) #(*id
                 self.check_whitespace(0)
                 #this could very well be an array type, so check for indicies
@@ -773,13 +776,38 @@ class Styler(object):
                 if self.current_type() != Type.RPAREN:
                     self.check_whitespace(0)
                     self.match_type() #(id(types
+                    if self.current_type() == Type.UNKNOWN:
+                        self.check_whitespace(1, ALLOW_ZERO)
+                        self.match(Type.UNKNOWN)
                     while self.current_type() == Type.COMMA:
                         self.check_whitespace(0)
                         self.match(Type.COMMA)
                         self.check_whitespace(1)
                         self.match_type() #(id(types,types
+                        if self.current_type() == Type.UNKNOWN:
+                            self.check_whitespace(1, ALLOW_ZERO)
+                            self.match(Type.UNKNOWN)
                 self.check_whitespace(0)
                 self.match(Type.RPAREN) #(id(types,types)
+            elif self.current_type() == Type.RPAREN: #(id)
+                self.check_whitespace(0)
+                self.match(Type.RPAREN)
+                self.check_whitespace(0)
+                self.match(Type.LPAREN) #type (id)(
+                if self.current_type() != Type.RPAREN:
+                    self.check_whitespace(0)
+                    self.match_type()
+                    if self.current_type() == Type.UNKNOWN:
+                        self.check_whitespace(1, ALLOW_ZERO)
+                        self.match(Type.UNKNOWN)
+                    while self.current_type() == Type.COMMA:
+                        self.check_whitespace(0)
+                        self.match(Type.COMMA)
+                        self.check_whitespace(1)
+                        self.match_type()
+                        if self.current_type() == Type.UNKNOWN:
+                            self.check_whitespace(1, ALLOW_ZERO)
+                            self.match(Type.UNKNOWN)
             self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types))
         # strip the pointers if they're there
@@ -789,6 +817,12 @@ class Styler(object):
             while self.current_type() == Type.STAR:
                 self.check_whitespace(0)
                 self.match(Type.STAR)
+            while self.current_type() == Type.LSQUARE:
+                self.check_whitespace(0)
+                self.match(Type.LSQUARE)
+                self.check_expression()
+                self.check_whitespace(0)
+                self.match(Type.RSQUARE)
         d(["match_type(): exited", self.current_token])
 
     def process_globals(self):
@@ -866,7 +900,7 @@ class Styler(object):
                         "Since the parsing will likely break terribly due to ",
                         "unknown types\n(C is not a context free language), ",
                         "simpatico will end parsing now."])
-                    exit(1)
+                    exit(2)
             #custom header
             else:
                 #strip the " from beginning and end, prepend with path
@@ -1199,7 +1233,7 @@ class Styler(object):
             self.match(Type.LPAREN)
             self.check_whitespace(0)
             #typecast
-            if self.current_type() in [Type.TYPE, Type.STRUCT]:
+            if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
                 #first clear the typecast
                 self.match_type()
                 self.check_whitespace(0)
@@ -1254,12 +1288,12 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.check_precompile()
             self.check_whitespace()
-            if self.current_type() == Type.TYPE:
+            if self.current_type() in [Type.TYPE, Type.IGNORE]:
                 self.check_declaration()
             elif self.current_type() == Type.STRUCT:
                 self.match(Type.STRUCT)
                 self.check_whitespace(1)
-                self.match(Type.UNKNOWN) #the struct type
+                self.match() #the struct type
                 first = True
                 while first or self.current_type() == Type.COMMA:
                     if first:
@@ -1507,7 +1541,7 @@ class Styler(object):
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
                 #types can be omitted if prototyped
-                if self.current_type() in [Type.TYPE, Type.STRUCT]: 
+                if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]: 
                     self.match_type() #type
                     if self.current_type() == Type.UNKNOWN:
                         self.check_whitespace(1, ALLOW_ZERO)
@@ -1515,6 +1549,20 @@ class Styler(object):
                 if self.current_type() == Type.UNKNOWN:
                     param_names.append(self.current_token)
                     self.match(Type.UNKNOWN)
+                    if self.current_type() == Type.STAR:
+                        #turns out it was a type after all and was relying on
+                        #a typedef never mentioned here.. bad bad people
+                        #TODO violate them maybe? iunno
+                        param_names.pop()
+                        self.check_whitespace(1, ALLOW_ZERO)
+                        self.match(Type.STAR)
+                        while self.current_type() == Type.STAR:
+                            self.check_whitespace(0)
+                            self.match(Type.STAR)
+                        if self.current_type() == Type.UNKNOWN:
+                            param_names.append(self.current_token)
+                            self.check_whitespace(1, ALLOW_ZERO)
+                            self.match(Type.UNKNOWN)
                     #strip array type indicators
                     self.check_post_identifier()
             self.check_whitespace(0)
@@ -1552,7 +1600,7 @@ class Styler(object):
             return
         d(["decl is a var", self.last_real_token])
         #well, it's a non-func then
-        if not external:
+        if not external and name:
             self.check_naming(name, Errors.VARIABLE)
         #is it an array?
         if self.current_type() == Type.LSQUARE:
