@@ -32,6 +32,21 @@ typedef struct Struct {
     char contents;
 } Struct; // not really wise
 
+/* these next lines are madness */
+#ifndef THING_THAT_DOES_NOT_EXIST
+#define THING_THAT_DOES_NOT_EXIST
+#endif
+
+#ifdef THING_THAT_DOES_NOT_EXIST
+#undef \
+        THING_THAT_DOES_NOT_EXIST
+#endif
+
+/* lastly... */
+#ifdef linux
+    //don't do anything
+#endif
+
 struct Nested {
     Struct s;
     struct Nested *n;
@@ -39,6 +54,14 @@ struct Nested {
 /* don't touch __attribute__ unless you really know what you're doing,
  * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
+
+static struct Awkward {
+    int i;
+} bob; /* bob is a variable */
+
+struct MoreAwkward {
+    int i;
+} jane = {.i = 0}; /* jane is also a variable, and is being initialised */
 
 /* commented global */
 int global = 1;
@@ -129,10 +152,15 @@ int main(int argc, char **argv) {
 #undef INIT_NESTED
     Struct *p = &s;
     d[0] = 1;
+#ifdef INIT_NESTED
     3;
+#endif
     {
         ; //random miniblock, doesn't do anything
     }
+    /*//double comments are fun
+    these next lines are pointless
+    */
     sizeof e[0];
     *c += d[0];
     if (!a && b) {
@@ -183,7 +211,7 @@ int main(int argc, char **argv) {
         default:
             break;
     }
-    printf("%c\n", (int) 's'); //prints: s
+    printf("%c\n", (int) "string"[0]); //prints: s
     FOREVER { /* this is just testing defines, using this is a bad idea */
         break;
     }
