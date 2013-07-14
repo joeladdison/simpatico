@@ -1095,7 +1095,16 @@ class Styler(object):
             d(["check_struct() exited, just a prototype"])
             return
         elif isTypedef and self.current_type() == Type.UNKNOWN:
+            #leave the type name for the typedef
             d(["check_struct() exited, typedef only"])
+            return
+        elif isTypedef and self.current_type() == Type.STAR:
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.match(Type.STAR)
+            while self.current_type() == Type.STAR:
+                self.check_whitespace(0)
+                self.match(Type.STAR)
+            #leave the type name for the typedef
             return
         self.check_whitespace(1)
         self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
@@ -1553,17 +1562,14 @@ class Styler(object):
                 Type.SEMICOLON]:
             d(["check_exp(): exited, nothing to do", self.current_token])
             return
-        #repeatable unary ops
-        if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND]:
+        #get those unary ops out of the way
+        if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND,
+                Type.CREMENT, Type.AMPERSAND, Type.MINUS]:
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
             self.check_expression()
             return
-        #single instance unary ops
-        elif self.current_type() in [Type.CREMENT, Type.AMPERSAND, Type.MINUS]:
-            self.match()
-            self.check_whitespace(0)
 
         #array initialisers are special
         if self.current_type() in [Type.LBRACE]:
@@ -1588,8 +1594,8 @@ class Styler(object):
                     and self.peek().get_type() == Type.STAR \
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
-                print "HEY YOU, IF YOUR FILES DON'T COMPILE INDIVIDUALLY..."
-                print "\tFIX THEM"
+                print "HEY YOU, ", self.filename, "won't compile on it's own"
+                print "\tFIX IT"
                 self.update_types([self.current_token.line])
             #typecast
             if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
@@ -1683,12 +1689,7 @@ class Styler(object):
                 self.current_token.get_spacing_left() == 0:
             self.check_whitespace(0)
             #consume until newline for now
-            while self.current_type() != Type.NEWLINE:
-                self.position += 1
-                self.current_token = self.tokens[self.position]
-                self.check_whitespace(1, ALLOW_ZERO)
-            self.position += 1
-            self.current_token = self.tokens[self.position]
+            self.consume_line()
         #just a plain identifier swap
         else:
             self.check_whitespace(1)
@@ -1698,8 +1699,13 @@ class Styler(object):
                 if self.current_type() == Type.LINE_CONT:
                     while self.current_type() != Type.NEWLINE:
                         self.position += 1
+                        self.current_token = self.tokens[self.position]
                     self.position += 1
-                tokens.append(self.current_token)
+                    self.current_token = self.tokens[self.position]
+                if self.current_token.inner_tokens:
+                    tokens.extend(self.current_token.inner_tokens)
+                else:
+                    tokens.append(self.current_token)
                 self.position += 1
                 self.current_token = self.tokens[self.position]
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -1785,14 +1791,18 @@ class Styler(object):
                 #they're doing something like "gcc a.c b.c c.c" and not all
                 #include the typedef, but because they're merged during
                 #compilation, gcc doesn't complain
-                print "HEY YOU, IF YOUR FILES DON'T COMPILE INDIVIDUALLY..."
-                print "FIX THEM"
+                print "HEY YOU,", self.filename, "wouldn't compile on it's own"
+                print "\tFIX IT"
                 self.update_types([self.current_token.line])
                 self.match_type()
                 self.check_whitespace(1, ALLOW_ZERO)
         array = False
         name = None
         #if we're dealing with a function pointer, no following identifer
+        #TODO: also possible that they've wrapped the identifier in parens
+        #       y'know, just because... e.g. int (main(int, char**)) {
+        #       just in case you think that's it, void *(id(args))
+        #       AND void (*id(args)) are valid, with no limit to parens
         if self.current_type() == Type.UNKNOWN:
             name = self.current_token
             self.match(Type.UNKNOWN)

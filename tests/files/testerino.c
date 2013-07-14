@@ -17,6 +17,11 @@
 #include "dummy.h"
 
 #define FOREVER for (; ; ) /* defines like this would be a bad idea normally*/
+#define LONG_ONE "here's a nice long string that's\
+        interrupted"
+#define LONG_TWO "here's another without strange" \
+        "whitespace in the middle"
+#define MACRO(x, ...) fprintf(stderr, x, ...)
 
 /* the beautiful thing that it is */
 extern int errno;
@@ -193,24 +198,27 @@ int main(int argc, char **argv) {
     for (int x = 0; x < 1; x++) {
         fprintf(stderr, "testerino\"\n"); //prints: testerino"
     }
-#define NUMBERS 1 << 2
+#define NUMBERS (1 << 2)
     for (a = 1; a; a--, b++) {
         b = b + NUMBERS;
     }
-#undef NUMBERS
+#define MORE_NUMBERS NUMBERS
     for (a = 1; a < 5; a++) {
-        continue;
+        b += e[MORE_NUMBERS];
     }
+#undef MORE_NUMBERS
     for (int new = 7; ; a++) {
         break;
     }
     while (a) {
-        fprintf(stdout, "\\%c\\" "\n", func_c(func_b(), 2)); //prints: \s\
+        fprintf(stdout, "\\%c\\" "\n", func_c(func_b(), 2)); /*prints: \s\*/
         --a;
     }
+#define BOB 1
     switch (a) {
+        case -1:
         case 0:
-        case 1:
+        case BOB:
             return 0;
         case 2:
             a++;

@@ -559,6 +559,8 @@ standard_header_types = {
         "ns_flag", "ns_opcode", "ns_rcode", "ns_update_operation",
         "ns_tsig_key", "ns_tcp_tsig_state", "ns_type", "ns_class",
         "ns_key_types", "ns_cert_types", "HEADER", "res_sendhookact",
-        "res_state"]
+        "res_state"],
+"strings.h" : ["size_t", "__locale_t", "locale_t"],
+"error.h" : []
 }
 
