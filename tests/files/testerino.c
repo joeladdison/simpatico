@@ -193,9 +193,11 @@ int main(int argc, char **argv) {
     for (int x = 0; x < 1; x++) {
         fprintf(stderr, "testerino\"\n"); //prints: testerino"
     }
+#define NUMBERS 1 << 2
     for (a = 1; a; a--, b++) {
-        b = b + -a;
+        b = b + NUMBERS;
     }
+#undef NUMBERS
     for (a = 1; a < 5; a++) {
         continue;
     }

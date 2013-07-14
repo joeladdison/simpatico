@@ -309,7 +309,8 @@ class Tokeniser(object):
             if self.multi_char_op:
                 self.add_to_word(c, n - self.line_start)
                 #catch dem silly >>= and <<= ops
-                if self.current_word.get_string() + "=" in ASSIGNMENTS:
+                if self.current_word.get_string() + megastring[n+1] \
+                        in ASSIGNMENTS:
                     continue
                 self.end_word()
                 continue
@@ -1553,7 +1554,7 @@ class Styler(object):
             d(["check_exp(): exited, nothing to do", self.current_token])
             return
         #repeatable unary ops
-        if self.current_type() in [Type.STAR, Type.NOT]:
+        if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND]:
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
@@ -1634,7 +1635,7 @@ class Styler(object):
             
         #now test for a following operator
         if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
-                Type.TERNARY, Type.COLON]:
+                Type.TERNARY, Type.COLON, Type.AMPERSAND]:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             self.check_whitespace(1, ALLOW_ZERO)
