@@ -140,8 +140,12 @@ int main(int argc, char **argv) {
     int b = -a, *c = &b;
     int *d = malloc(sizeof(int) * 6);
     int **e = malloc(sizeof(int *) * 6);
+    struct NewTypeMidFunction {
+        int yesReally;
+    } awkward = {7};
     int f = sizeof e, **g = e;
     f = sizeof(e);
+    f = sizeof(awkward.yesReally);
     ;
     Struct s;
     (&s)->contents = 'a';

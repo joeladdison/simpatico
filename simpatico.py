@@ -566,9 +566,9 @@ class Styler(object):
         #then the guts of it all
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
-        self.current_token = self.tokens[self.position]
-        self.last_real_token = None
         try:
+            self.current_token = self.tokens[self.position]
+            self.last_real_token = None
             while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
                 d(["pre-process: skipping newline/comment", self.current_token])
                 if self.current_type() == Type.COMMENT:
@@ -1322,6 +1322,14 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.STRUCT:
+            #just in case, check if it's a struct definition
+            if self.lookahead([Type.SEMICOLON, Type.LBRACE, Type.ASSIGNMENT])\
+                    == Type.LBRACE:
+                #yep
+                self.check_struct()
+                self.check_whitespace(0)
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
+                return
             self.match(Type.STRUCT)
             self.check_whitespace(1)
             self.match() #the struct type
@@ -1349,25 +1357,34 @@ class Styler(object):
                     self.match(Type.ASSIGNMENT)
                     self.check_whitespace(1)
                     #awkward types of struct initialisers to deal with
-                    #if it's {.member = } style
                     if self.current_type() == Type.LBRACE:
                         d(["struct assignment {.x = ...} style"])
                         self.match(Type.LBRACE)
                         self.check_whitespace(0)
-                        while self.current_type() == Type.BINARY_OP: # .
-                            self.match(Type.BINARY_OP)
-                            d(["next member", self.current_token])
-                            self.check_whitespace(0)
-                            self.match(Type.UNKNOWN)
-                            self.check_whitespace(1)
-                            self.match(Type.ASSIGNMENT)
-                            self.check_whitespace(1)
-                            self.check_expression()
-                            self.check_whitespace(0)
-                            if self.current_type() == Type.COMMA:
-                                self.match(Type.COMMA)
+                        #if it's {.member = } style
+                        if self.current_type() == Type.BINARY_OP:
+                            while self.current_type() == Type.BINARY_OP: # .
+                                self.match(Type.BINARY_OP)
+                                d(["next member", self.current_token])
+                                self.check_whitespace(0)
+                                self.match(Type.UNKNOWN)
                                 self.check_whitespace(1)
-                        self.match(Type.RBRACE, NO_NEWLINE)
+                                self.match(Type.ASSIGNMENT)
+                                self.check_whitespace(1)
+                                self.check_expression()
+                                self.check_whitespace(0)
+                                if self.current_type() == Type.COMMA:
+                                    self.match(Type.COMMA)
+                                    self.check_whitespace(1)
+                        #otherwise comma separated list of expressions
+                        else:
+                            while self.current_type() != Type.RBRACE:
+                                self.check_expression()
+                                self.check_whitespace(0)
+                                if self.current_type() == Type.COMMA:
+                                    self.match(Type.COMMA)
+                                    self.check_whitespace(1)
+                        self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
                     #otherwise it's just a normal expression
                     else:
                         self.check_expression()
@@ -1435,6 +1452,7 @@ class Styler(object):
                 print "HEY YOU,", self.filename, \
                         "can't be compiled on it's own\n\tFIX IT"
                 self.update_types([self.current_token.line])
+                self.match(Type.TYPE)
             #is this naughty GOTO territory?
             if self.peek().get_type() == Type.COLON:
                 #yep, it's a label
