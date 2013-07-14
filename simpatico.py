@@ -98,8 +98,10 @@ class Type(object):
         #31
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
         #39
-        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM
-    ) = range(47)
+        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM,
+        #47
+        GOTO
+    ) = range(48)
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -161,6 +163,8 @@ class Word(object):
             self._type = Type.IF
         elif line == Terminals.KW_ELSE:
             self._type = Type.ELSE
+        elif line == Terminals.KW_GOTO:
+            self._type = Type.GOTO
         elif line == "\t":
             self._type = Type.COMMENT
         elif line == ";":
@@ -1431,6 +1435,12 @@ class Styler(object):
                 print "HEY YOU,", self.filename, \
                         "can't be compiled on it's own\n\tFIX IT"
                 self.update_types([self.current_token.line])
+            #is this naughty GOTO territory?
+            if self.peek().get_type() == Type.COLON:
+                #yep, it's a label
+                self.match(Type.UNKNOWN)
+                self.check_whitespace(0)
+                self.match(Type.COLON, MUST_NEWLINE)
             else:
                 self.check_expression()
                 self.check_whitespace(0)
@@ -1442,6 +1452,12 @@ class Styler(object):
             self.check_whitespace()
             self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
         elif self.current_type() == Type.SEMICOLON: #no statement, just ;
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
+        elif self.current_type() == Type.GOTO:
+            self.match(Type.GOTO)
+            self.check_whitespace(1)
+            self.match(Type.UNKNOWN)
+            self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_statement(): exited", self.current_token])
 
