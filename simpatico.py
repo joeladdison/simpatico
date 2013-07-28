@@ -373,8 +373,11 @@ class Tokeniser(object):
             elif self.in_char:
                 self.add_to_word(c, n - self.line_start)
                 #first: is it a '; second: are sneaky people involved
-                if c == "'" and megastring[n-1] != '\\':
-                    self.end_word()
+                if c == "'":
+                    if megastring[n-1] == '\\' and not megastring[n-2] == '\\':
+                        pass
+                    else:
+                        self.end_word()
             #catch dem spaces
             elif c == ' ':
                 self.end_word()
