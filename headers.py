@@ -561,6 +561,7 @@ standard_header_types = {
         "ns_key_types", "ns_cert_types", "HEADER", "res_sendhookact",
         "res_state"],
 "strings.h" : ["size_t", "__locale_t", "locale_t"],
-"error.h" : []
+"error.h" : [],
+"err.h" : ["__gnuc_va_list"]
 }
 
