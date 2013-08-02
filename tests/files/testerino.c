@@ -157,6 +157,8 @@ void test_switch(int a) {
         default:
             break;
     }
+#if BOB
+#endif
 }
 
 /* random test bits, would be in main but the length of main would be > 50*/

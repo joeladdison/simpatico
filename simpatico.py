@@ -1047,6 +1047,9 @@ class Styler(object):
 #TODO undefine
         elif self.current_type() == Type.PRECOMPILER:
             self.consume_line()
+        elif self.current_type() == Type.IF:
+            self.match(Type.IF)
+            self.consume_line()
         d(["check_precompile() exited", self.current_token])
 
     def update_types(self, new_types):
