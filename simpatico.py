@@ -393,7 +393,7 @@ class Tokeniser(object):
                 self.add_to_word(c, n - self.line_start)
             #now we just have to catch the possible word seperators
             elif c in self.deal_breakers:
-                if c == "}":
+                if c in ["}", ";"]:
                     self.end_word()
                     self.add_to_word(c, n - self.line_start)
                     self.end_word()
@@ -1923,7 +1923,6 @@ class Styler(object):
             self.check_whitespace(1)
             if array:
                 self.check_array_assignment()
-                assert self.current_type() == Type.SEMICOLON
             else:
                 self.check_expression()
         
