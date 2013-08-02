@@ -1490,6 +1490,12 @@ class Styler(object):
                 self.match(Type.COLON, MUST_NEWLINE)
             else:
                 self.check_expression()
+                #if we have a comma then it's more expression time
+                while self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
+                    self.match(Type.COMMA)
+                    self.check_whitespace(1)
+                    self.check_expression()
                 self.check_whitespace(0)
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.LBRACE:
