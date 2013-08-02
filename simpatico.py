@@ -822,6 +822,9 @@ class Styler(object):
             while self.current_type() == Type.STAR:
                 self.check_whitespace(0)
                 self.match(Type.STAR)
+            if self.current_type() == Type.IGNORE:
+                self.check_whitespace(1)
+                self.match(Type.IGNORE) #const int * const var
             while self.current_type() == Type.LSQUARE:
                 self.check_whitespace(0)
                 self.match(Type.LSQUARE)
@@ -1824,7 +1827,7 @@ class Styler(object):
                 if self.current_type() == Type.COMMA:
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
-                #types can be omitted if prototyped
+                #types can be omitted (defaults to int)
                 if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE,
                         Type.ENUM]: 
                     self.match_type() #type
@@ -1867,10 +1870,10 @@ class Styler(object):
                 self.match(Type.LBRACE, MUST_NEWLINE, MAY_NEWLINE)
                 self.check_block()
                 self.check_whitespace()
-                self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
                 func_length = self.current_token.line_number - start_line
                 if func_length > MAX_FUNCTION_LENGTH:
                     self.errors.func_length(start_line, func_length)
+                self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             elif self.current_type() == Type.ASSIGNMENT:
                 self.check_whitespace(1)
                 self.match(Type.ASSIGNMENT)

@@ -78,7 +78,7 @@ func_a(char *str, int i) {
 }
 
 /* a function prototype */
-void proto(int);
+void proto(const int * const param);
 
 /* fun with 'arry */
 void arry(int potter[]) {
@@ -86,7 +86,7 @@ void arry(int potter[]) {
 }
 
 /* the definition of that prototype */
-void proto(param) { // with bonus omitted type. DO NOT DO THIS, SILLY PEOPLE
+void proto(const int * const param) {
 }
 
 /* a global int, declare it this way and face terrible vengeance with a bunch
@@ -132,11 +132,62 @@ void if_continutation(void) {
     return;
 }
 
+/* doooooodoodooodooodoooo */
 void test_do(struct Nested n) {
     int a = 5;
     do {
         a--;
     } while (a, 5, !NULL);
+}
+
+/* and another silly comment */
+void test_switch(int a) {
+#define BOB 1
+    switch (a) {
+        case -1:
+        case 0:
+        case BOB:
+            return 0;
+        case 2:
+            a++;
+        default:
+            break;
+    }
+}
+
+/* random test bits, would be in main but the length of main would be > 50*/
+void test_misc(int a, int b, int *e) {
+    a = 0 ? a : b;
+    ;
+#ifdef INIT_NESTED
+    3;
+#endif
+    for (int x = 0; x < 1; x++) {
+        fprintf(stderr, "testerino\"\n"); //prints: testerino"
+    }
+#define NUMBERS (1 << 2)
+    for (a = 1; a; a--, b++) {
+        b = b + NUMBERS;
+    }
+#define MORE_NUMBERS NUMBERS
+    for (a = 1; a < 5; a++) {
+        b += e[MORE_NUMBERS];
+    }
+#undef MORE_NUMBERS
+    for (int new = 7; ; a++) {
+        break;
+    }
+    while (a) {
+        fprintf(stdout, "\\%c\\" "\n", func_c(func_b(), 2)); /*prints: \s\ */
+        --a;
+    }
+    printf("%c\n", (int) "string"[0]); //prints: s
+    FOREVER { /* this is just testing defines, using this is a bad idea */
+        break;
+    }
+    {
+        ; //random miniblock, doesn't do anything
+    }
 }
 
 /* heres a comment*/
@@ -151,7 +202,6 @@ int main(int argc, char **argv) {
     int f = sizeof e, **g = e;
     f = sizeof(e);
     f = sizeof(awkward.yesReally);
-    ;
     Struct s;
     (&s)->contents = 'a';
     s.contents = 'b';
@@ -161,12 +211,6 @@ int main(int argc, char **argv) {
 #undef INIT_NESTED
     Struct *p = &s;
     d[0] = 1;
-#ifdef INIT_NESTED
-    3;
-#endif
-    {
-        ; //random miniblock, doesn't do anything
-    }
     /*//double comments are fun
     these next lines are pointless
     */
@@ -193,41 +237,6 @@ int main(int argc, char **argv) {
     if(p->contents == 1) {
         p->contents = NULL;
         return;
-    }
-    a = 0 ? a : b;
-    for (int x = 0; x < 1; x++) {
-        fprintf(stderr, "testerino\"\n"); //prints: testerino"
-    }
-#define NUMBERS (1 << 2)
-    for (a = 1; a; a--, b++) {
-        b = b + NUMBERS;
-    }
-#define MORE_NUMBERS NUMBERS
-    for (a = 1; a < 5; a++) {
-        b += e[MORE_NUMBERS];
-    }
-#undef MORE_NUMBERS
-    for (int new = 7; ; a++) {
-        break;
-    }
-    while (a) {
-        fprintf(stdout, "\\%c\\" "\n", func_c(func_b(), 2)); /*prints: \s\*/
-        --a;
-    }
-#define BOB 1
-    switch (a) {
-        case -1:
-        case 0:
-        case BOB:
-            return 0;
-        case 2:
-            a++;
-        default:
-            break;
-    }
-    printf("%c\n", (int) "string"[0]); //prints: s
-    FOREVER { /* this is just testing defines, using this is a bad idea */
-        break;
     }
     return f;
 }
