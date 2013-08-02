@@ -68,6 +68,10 @@ struct MoreAwkward {
     int i;
 } jane = {.i = 0}; /* jane is also a variable, and is being initialised */
 
+struct StillAwkward {
+    int i;
+} *thisIsAnArrayOfStillAwkward; /* not a fan of this at allll */
+
 /* commented global */
 int global = 1;
 char globalChar = '\0'; /*also commented*/
@@ -216,7 +220,7 @@ int main(int argc, char **argv) {
     */
     sizeof e[0];
     *c += d[0];
-    if (!a && b) {
+    if (!a && b && '@') {
         b = a | b | f;
     } else if (a) {
         int wizard[] = {1, 2, 3};
@@ -225,6 +229,7 @@ int main(int argc, char **argv) {
         } else {
         }
         char robe[] = "robe";
+        char at[] = {'a', 't', '@'}; //unsafe since not terminated with '/0'
         char hat[] = {"hat"};
         int arry[7] = {[2] = 3, [4] = 2}; //init only some members
     } else {

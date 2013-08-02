@@ -1118,9 +1118,17 @@ class Styler(object):
         self.check_whitespace()
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_attribute()
+        is_pointer = False
         #var declaration following struct declaration
+        if self.current_type() == Type.STAR:
+            is_pointer = True
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.match(Type.STAR)
+            while self.current_type() == Type.STAR:
+                self.check_whitespace(0)
+                self.match(Type.STAR)
         if not isTypedef and self.current_type() == Type.UNKNOWN:
-            self.check_whitespace(1);
+            self.check_whitespace(1, is_pointer);
             self.check_naming(self.current_token, Errors.VARIABLE)
             #TODO check for a comment
             #deal with the potential assignment while we're there
@@ -1770,15 +1778,19 @@ class Styler(object):
                 if self.current_type() == Type.BINARY_OP:
                     self.match(Type.BINARY_OP)
                     self.check_whitespace(0)
+                    self.check_expression() #clear the following expression
+                # {{0}, {0}, {0}
+                elif self.current_type() == Type.LBRACE:
+                    self.check_array_assignment()
                 #possibly just membername = stuff
-                self.check_expression()
+                else:
+                    self.check_expression()
                 if self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
         self.check_whitespace(0)
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
-        assert self.current_type() == Type.SEMICOLON
         d(["check_array_assignment() exited", self.current_token])
 
     def check_declaration(self, match_types = True, external = False):
