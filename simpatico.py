@@ -817,13 +817,9 @@ class Styler(object):
             self.match() #might be Type.TYPE or Type.UNKNOWN
         # strip the pointers if they're there
         if self.current_type() == Type.STAR:
-            self.check_whitespace(1, ALLOW_ZERO)
-            self.match(Type.STAR)
-            while self.current_type() == Type.STAR:
-                self.check_whitespace(0)
-                self.match(Type.STAR)
+            found = self.match_pointers()
             if self.current_type() == Type.IGNORE:
-                self.check_whitespace(1)
+                self.check_whitespace(1, found)
                 self.match(Type.IGNORE) #const int * const var
             while self.current_type() == Type.LSQUARE:
                 self.check_whitespace(0)
@@ -840,9 +836,7 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.LPAREN) #(
             self.check_whitespace(0)
-            if self.current_type() == Type.STAR:
-                self.match(Type.STAR) #(*
-                self.check_whitespace(0)
+            self.match_pointers()
             #allow for non-declaration
             if self.current_type() == Type.UNKNOWN:
                 name = self.current_token
@@ -1121,15 +1115,7 @@ class Styler(object):
         self.check_whitespace()
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_attribute()
-        is_pointer = False
-        #var declaration following struct declaration
-        if self.current_type() == Type.STAR:
-            is_pointer = True
-            self.check_whitespace(1, ALLOW_ZERO)
-            self.match(Type.STAR)
-            while self.current_type() == Type.STAR:
-                self.check_whitespace(0)
-                self.match(Type.STAR)
+        is_pointer = self.match_pointers()
         if not isTypedef and self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1, is_pointer);
             self.check_naming(self.current_token, Errors.VARIABLE)
@@ -1159,7 +1145,20 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
                 self.match()
 
-    def check_enum(self):
+    def match_pointers(self):
+        d(["match_pointers() entered", self.current_token])
+        found = False
+        if self.current_type() == Type.STAR:
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.match(Type.STAR)
+            while self.current_type() == Type.STAR:
+                self.check_whitespace(0)
+                self.match(Type.STAR)
+            found = True
+        d(["match_pointers() exited, found:", found, self.current_token])
+        return found
+
+    def check_enum(self, is_typedef = False):
         self.match(Type.ENUM)
         self.check_whitespace(1)
         if self.current_type() == Type.UNKNOWN:
@@ -1179,6 +1178,22 @@ class Styler(object):
                     self.check_whitespace(1)
             self.check_whitespace(0)
             self.match(Type.RBRACE)
+        found = self.match_pointers()
+        if is_typedef:
+            return
+        if self.current_type() == Type.UNKNOWN:
+            self.check_whitespace(1, found)
+            self.check_naming(self.current_token, Errors.VARIABLE)
+            self.match(Type.UNKNOWN)
+            while self.current_type() == Type.COMMA:
+                self.check_whitespace(0)
+                self.match(Type.COMMA)
+                self.check_whitespace(1)
+                found = self.match_pointers()
+                self.check_whitespace(1, found)
+                self.check_naming(self.current_token, Errors.VARIABLE)
+                self.match(Type.UNKNOWN)
+
 
     def check_typedef(self):
         d(["check_typedef() entered", self.current_token])
@@ -1186,7 +1201,7 @@ class Styler(object):
         if self.current_type() == Type.STRUCT:
             self.check_struct(IS_TYPEDEF)
         elif self.current_type() == Type.ENUM:
-            self.check_enum()
+            self.check_enum(IS_TYPEDEF)
         else:
             self.match_type()
         self.check_whitespace(1)
@@ -1203,12 +1218,7 @@ class Styler(object):
             self.match(Type.COMMA)
             self.check_whitespace(1)
             #technically the *s are optional, but without them idiocy
-            if self.current_type() == Type.STAR:
-                self.match(Type.STAR)
-                while self.current_type() == Type.STAR:
-                    self.check_whitespace(0)
-                    self.match(Type.STAR)
-                self.check_whitespace(1, ALLOW_ZERO)
+            self.check_whitespace(1, self.match_pointers())
             assert self.current_type() == Type.UNKNOWN
             self.check_naming(self.current_token, Errors.TYPE) #wasn't a type
             self.update_types([self.current_token.line])
@@ -1367,15 +1377,7 @@ class Styler(object):
                 else:
                     self.check_whitespace(0)
                     self.match(Type.COMMA)
-                if self.current_type() == Type.STAR: #them pointers again
-                    self.check_whitespace(1, ALLOW_ZERO)
-                    self.match(Type.STAR)
-                    while self.current_type() == Type.STAR:
-                        self.check_whitespace(0)
-                        self.match(Type.STAR)
-                    self.check_whitespace(1, ALLOW_ZERO)               
-                else:
-                    self.check_whitespace(1)
+                self.check_whitespace(1, self.match_pointers())
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
                 self.check_post_identifier()
@@ -1857,11 +1859,7 @@ class Styler(object):
                         #a typedef never mentioned here.. bad bad people
                         #TODO violate them maybe? iunno
                         param_names.pop()
-                        self.check_whitespace(1, ALLOW_ZERO)
-                        self.match(Type.STAR)
-                        while self.current_type() == Type.STAR:
-                            self.check_whitespace(0)
-                            self.match(Type.STAR)
+                        self.match_pointers()
                         if self.current_type() == Type.UNKNOWN:
                             param_names.append(self.current_token)
                             self.check_whitespace(1, ALLOW_ZERO)
@@ -1925,13 +1923,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.COMMA)
             self.check_whitespace(1)
-            #in case this is pointers to the type
-            while self.current_type() == Type.STAR:
-                self.match(Type.STAR)
-                if self.current_type() == Type.STAR:
-                    self.check_whitespace(0)
-                else:
-                    self.check_whitespace(1, ALLOW_ZERO)
+            self.check_whitespace(1, self.match_pointers())
             self.match(Type.UNKNOWN) #identifier
             self.check_post_identifier()
             if self.current_type() == Type.ASSIGNMENT:
