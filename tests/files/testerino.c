@@ -139,6 +139,8 @@ void if_continutation(void) {
 /* doooooodoodooodooodoooo */
 void test_do(struct Nested n) {
     int a = 5;
+    int;
+    struct Nested;
     do {
         a--;
     } while (a, 5, !NULL);
@@ -158,6 +160,7 @@ void test_switch(int a) {
             break;
     }
 #if BOB
+#else
 #endif
 }
 

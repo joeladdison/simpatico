@@ -153,7 +153,7 @@ class Word(object):
         #prepare thyself for many, many elifs
         if line.lower() == "define":
             self._type = Type.DEFINE
-        elif line in ["ifdef", "ifndef", "endif", "undef", "pragma"]:
+        elif line in ["ifdef", "ifndef", "endif", "undef", "pragma", "elif"]:
             self._type = Type.PRECOMPILER
         elif line == "include":
             self._type = Type.INCLUDE
@@ -1018,8 +1018,11 @@ class Styler(object):
             #custom header
             else:
                 #strip the " from beginning and end, prepend with path
-                fun_with_recursion = Styler(self.path + include_name[1:-1],
-                        True)
+                name = self.path + include_name[1:-1]
+                if name == self.filename:
+                    d(["check_precompile() exited", self.current_token])
+                    return
+                fun_with_recursion = Styler(name, True)
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -1039,10 +1042,7 @@ class Styler(object):
             if self.last_real_token.get_type() != Type.NEWLINE:
                 self.check_define()
 #TODO undefine
-        elif self.current_type() == Type.PRECOMPILER:
-            self.consume_line()
-        elif self.current_type() == Type.IF:
-            self.match(Type.IF)
+        elif self.current_type() in [Type.PRECOMPILER, Type.IF, Type.ELSE]:
             self.consume_line()
         d(["check_precompile() exited", self.current_token])
 
@@ -1370,7 +1370,7 @@ class Styler(object):
             self.match(Type.STRUCT)
             self.check_whitespace(1)
             self.match() #the struct type
-            first = True
+            first = self.current_type() != Type.SEMICOLON
             while first or self.current_type() == Type.COMMA:
                 if first:
                     first = False
@@ -1378,6 +1378,9 @@ class Styler(object):
                     self.check_whitespace(0)
                     self.match(Type.COMMA)
                 self.check_whitespace(1, self.match_pointers())
+                #allow for stupid things like 'int;'
+                if self.current_type() == Type.SEMICOLON:
+                    break
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
                 self.check_post_identifier()
