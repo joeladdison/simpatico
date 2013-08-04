@@ -572,7 +572,8 @@ class Styler(object):
         self.tokens = tokeniser.get_tokens()
         try:
             self.current_token = self.tokens[self.position]
-            self.last_real_token = None
+            self.last_real_token = Word()
+            self.last_real_token._type = Type.ERROR_TYPE
             while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
                 d(["pre-process: skipping newline/comment", self.current_token])
                 if self.current_type() == Type.COMMENT:
