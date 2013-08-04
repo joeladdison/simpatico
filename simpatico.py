@@ -761,7 +761,8 @@ class Styler(object):
                 depth -= 1
                 i += 1
                 if depth == 0:
-                    while self.tokens[i] in [Type.COMMENT, Type.NEWLINE]:
+                    while self.tokens[i].get_type() in [Type.COMMENT,
+                            Type.NEWLINE]:
                         i += 1
                     d(["has matching_else: ending at ", self.tokens[i]])
                     return self.tokens[i].get_type() == Type.ELSE
