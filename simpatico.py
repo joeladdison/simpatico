@@ -1169,17 +1169,26 @@ class Styler(object):
             self.check_whitespace(1)
         #does it have anything of interest to parse
         if self.current_type() == Type.LBRACE:
+            line = self.current_token.line_number
             self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
-            self.check_whitespace(0)
+            expected = 0
+            if self.current_token.line_number != line:
+                expected += INDENT_SIZE
+            self.check_whitespace(expected)
             while self.current_type() != Type.RBRACE:
                 self.check_naming(self.current_token, Errors.DEFINE)
                 self.check_expression()
                 if self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
+                    line = self.current_token.line_number
                     self.match(Type.COMMA)
-                    self.check_whitespace(1)
+                    if line == self.current_token.line_number:
+                        self.check_whitespace(1)
+                    else:
+                        self.line_continuation = False
+                        self.check_whitespace(expected)
             self.check_whitespace(0)
-            self.match(Type.RBRACE)
+            self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
         found = self.match_pointers()
         if is_typedef:
             return

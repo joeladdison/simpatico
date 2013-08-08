@@ -60,6 +60,21 @@ struct Nested {
  * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
 
+enum EnumTest {
+    BOB, 
+    JANE,
+    MARY
+};
+
+typedef enum TypedEnumTest {
+    COW,
+    CAT,
+    NOPE
+} TypedEnumTest;
+
+enum MoreEnum {
+    YEP, THIS, IS, OK
+};
 static struct Awkward {
     int i;
 } bob; /* bob is a variable */
@@ -101,7 +116,7 @@ weirdGlobal;
 int (*funcArray[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
-(*func_b(void))(char *, int) {
+int *(*func_b(void))(char *, int) {
     int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
