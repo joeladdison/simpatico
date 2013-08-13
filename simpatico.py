@@ -74,7 +74,7 @@ class Terminals(object):
     KW_COMPLEX = "_Complex"
     KW_IMAGINARY = "_Imaginary"
 
-BINARY_OPERATORS = ["+", "/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
+BINARY_OPERATORS = ["/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
 UNARY_OPERATORS = ["--", "++", "!"]
 LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "==", "!="]
 ASSIGNMENTS = ["=", "%=", "+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=",
@@ -100,8 +100,8 @@ class Type(object):
         #39
         LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM,
         #47
-        GOTO
-    ) = range(48)
+        GOTO, PLUS
+    ) = range(49)
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -191,6 +191,8 @@ class Word(object):
             self._type = Type.RPAREN
         elif line == "-":
             self._type = Type.MINUS
+	elif line == "+":
+	    self._type = Type.PLUS
         elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
         elif line == "*":
@@ -1299,8 +1301,12 @@ class Styler(object):
     def check_condition(self):
         # check spacing on the parenthesis
         self.check_whitespace(1, ALLOW_ZERO) # if/while (
-        self.match(Type.LPAREN)
-        self.check_whitespace(0) # (exp
+	lparen = True
+	if self.current_type() != Type.LPAREN:
+	    lparen = False
+	else:
+            self.match(Type.LPAREN)
+	    self.check_whitespace(0) # (exp
         self.check_expression()
         while self.current_type() == Type.COMMA:
             self.check_whitespace(0)
@@ -1308,7 +1314,8 @@ class Styler(object):
             self.check_whitespace(1)
             self.check_expression()
         self.check_whitespace(0) # exp)
-        self.match(Type.RPAREN)
+	if lparen:
+            self.match(Type.RPAREN)
 
     def check_do(self):
         self.should_have_block(Type.DO)
@@ -1339,9 +1346,9 @@ class Styler(object):
                 self.match()
                 self.check_whitespace(0)
                 self.match(Type.RPAREN)
-            #or that there might be a -
-            elif self.current_type() == Type.MINUS:
-                self.match(Type.MINUS)
+            #or that there might be a -/+
+            elif self.current_type() in [Type.MINUS, Type.PLUS]:
+                self.match()
                 self.check_whitespace(0)
                 self.match() #const or enum
             else:
@@ -1603,7 +1610,7 @@ class Styler(object):
             return
         #get those unary ops out of the way
         if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND,
-                Type.CREMENT, Type.AMPERSAND, Type.MINUS]:
+                Type.CREMENT, Type.AMPERSAND, Type.MINUS, Type.PLUS]:
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
@@ -1680,7 +1687,7 @@ class Styler(object):
             
         #now test for a following operator
         if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
-                Type.TERNARY, Type.COLON, Type.AMPERSAND]:
+                Type.TERNARY, Type.COLON, Type.AMPERSAND, Type.PLUS]:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             self.check_whitespace(1, ALLOW_ZERO)
