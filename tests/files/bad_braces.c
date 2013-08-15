@@ -1,6 +1,6 @@
 /* Contains bad brace violations of different types, including mixes of
 ** good and bad. Currently contains
-** 16
+** 20
 ** violations.
 */
 
@@ -24,9 +24,9 @@ int fa(int a) {
     else if (a+1)
     {
         a /= 2;
-    } //violation (the whole line of } else {)
+    } //violation
     else
-    {
+    { //violation
         a--;
     }
     return fb(a);
@@ -70,6 +70,11 @@ void bad_loops(void) {
     { //violation
         a++;
     }
+    do
+    { //violation
+        a++;
+    } //violation
+    while (!a);
 }
 
 
@@ -78,10 +83,10 @@ int main () {
     int a = 1;
     switch (a)
     { //violation
-    case 0:
-        return 0;
-    default:
-        break;
+        case 0:
+            return 0;
+        default:
+            break;
     }
     if (fa(a)) {
         a = 1;
