@@ -277,7 +277,7 @@ class Tokeniser(object):
         self.in_singleline_comment = False
         self.deal_breakers = [' ', '.', '-', '+', '/', '*', '>', '<', '&',
                 '|', '!', '~', '%', '^', '(', ')', '{', '}', ';', ',', ':',
-                '?', '[', ']', '#', '=']
+                '?', '[', ']', '#', '=', "'"]
         self.current_word = Word()
         self.space_left = 0
         self.current_word_start = 1

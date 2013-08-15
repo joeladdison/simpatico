@@ -169,7 +169,7 @@ void test_switch(int a) {
         case 0:
         case BOB:
             return 0;
-        case 2:
+        case '@':
             a++;
         default:
             break;
