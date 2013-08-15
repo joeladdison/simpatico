@@ -277,7 +277,7 @@ class Tokeniser(object):
         self.in_singleline_comment = False
         self.deal_breakers = [' ', '.', '-', '+', '/', '*', '>', '<', '&',
                 '|', '!', '~', '%', '^', '(', ')', '{', '}', ';', ',', ':',
-                '?', '[', ']', '#', '=', "'"]
+                '?', '[', ']', '#', '=']
         self.current_word = Word()
         self.space_left = 0
         self.current_word_start = 1
@@ -380,6 +380,7 @@ class Tokeniser(object):
                         pass
                     else:
                         self.end_word()
+                        self.in_char = False
             #catch dem spaces
             elif c == ' ':
                 self.end_word()
@@ -387,10 +388,12 @@ class Tokeniser(object):
 
             #catch the start of a string
             elif c == '"':
+                self.end_word()
                 self.in_string = not self.in_string
                 self.add_to_word(c, n - self.line_start)
             #or, for that matter, the start of a char
             elif c == "'":
+                self.end_word()
                 self.in_char = not self.in_char
                 self.add_to_word(c, n - self.line_start)
             #now we just have to catch the possible word seperators

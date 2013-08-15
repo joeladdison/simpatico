@@ -165,11 +165,12 @@ void test_do(struct Nested n) {
 void test_switch(int a) {
 #define BOB 1
     switch (a) {
+        case '!':
         case -1:
         case 0:
         case BOB:
             return 0;
-        case '@':
+        case 'x':
             a++;
         default:
             break;
