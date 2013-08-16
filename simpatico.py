@@ -1338,7 +1338,14 @@ class Styler(object):
         self.check_whitespace(1)
         self.match(Type.LBRACE, MUST_NEWLINE)
         self.depth += 1
-        while self.current_type() == Type.CASE:
+        while self.current_type() in [Type.CASE, Type.DEFAULT]:
+            if self.current_type() == Type.DEFAULT:
+                self.check_whitespace(self.depth * INDENT_SIZE)
+                self.match(Type.DEFAULT)
+                self.check_whitespace(0)
+                self.match(Type.COLON, MUST_NEWLINE)
+                self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
+                continue
             self.check_whitespace(self.depth * INDENT_SIZE)
             self.match(Type.CASE)
             self.check_whitespace(1)
@@ -1359,12 +1366,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.COLON, MUST_NEWLINE)
             self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
-        if self.current_type() == Type.DEFAULT:
-            self.check_whitespace(self.depth * INDENT_SIZE)
-            self.match(Type.DEFAULT)
-            self.check_whitespace(0)
-            self.match(Type.COLON, MUST_NEWLINE)
-            self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
+        
         self.depth -= 1
         self.check_whitespace(self.depth * INDENT_SIZE)
         self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
