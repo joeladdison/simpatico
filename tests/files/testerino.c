@@ -169,7 +169,7 @@ void test_switch(int a) {
             break;
         case '!':
         case -1:
-        case 0:
+        case 17 ... 20:
         case BOB:
             return 0;
         case 'x':

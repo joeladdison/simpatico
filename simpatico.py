@@ -1328,6 +1328,34 @@ class Styler(object):
         self.check_whitespace(0)
         self.match(Type.SEMICOLON, MUST_NEWLINE)
 
+    def check_case_value(self):
+        d(["check_case_value(): entered", self.current_token])
+        self.check_whitespace(1)
+        if self.current_type() == Type.LPAREN:
+            self.match(Type.LPAREN)
+            self.check_whitespace(0)
+        if self.current_type() in [Type.PLUS, Type.MINUS]:
+            self.match()
+            self.check_whitespace(0)
+        self.match() #the const
+        #check for ellipsis (...)
+        if self.current_type() == Type.BINARY_OP:
+            self.check_whitespace(1, ALLOW_ZERO)
+            self.match(Type.BINARY_OP)
+            self.check_whitespace(0)
+            self.match(Type.BINARY_OP)
+            self.check_whitespace(0)
+            self.match(Type.BINARY_OP)
+            self.check_whitespace(1, ALLOW_ZERO)
+            if self.current_type() in [Type.PLUS, Type.MINUS]:
+                self.match()
+                self.check_whitespace(0)
+            self.match() #the const
+        if self.current_type() == Type.RPAREN:
+            self.match(Type.RPAREN)
+            self.check_whitespace(0)
+        d(["check_case_value(): exited", self.current_token])
+
     def check_switch(self):
         d(["check_switch(): entered", self.current_token])
         self.match(Type.LPAREN)
@@ -1339,30 +1367,12 @@ class Styler(object):
         self.match(Type.LBRACE, MUST_NEWLINE)
         self.depth += 1
         while self.current_type() in [Type.CASE, Type.DEFAULT]:
-            if self.current_type() == Type.DEFAULT:
-                self.check_whitespace(self.depth * INDENT_SIZE)
-                self.match(Type.DEFAULT)
-                self.check_whitespace(0)
-                self.match(Type.COLON, MUST_NEWLINE)
-                self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
-                continue
             self.check_whitespace(self.depth * INDENT_SIZE)
-            self.match(Type.CASE)
-            self.check_whitespace(1)
-            #it's possible they've wrapped our const/enum in ()
-            if self.current_type() == Type.LPAREN:
-                self.match(Type.LPAREN)
-                self.check_whitespace(0)
-                self.match()
-                self.check_whitespace(0)
-                self.match(Type.RPAREN)
-            #or that there might be a -/+
-            elif self.current_type() in [Type.MINUS, Type.PLUS]:
-                self.match()
-                self.check_whitespace(0)
-                self.match() #const or enum
+            if self.current_type() == Type.DEFAULT:
+                self.match(Type.DEFAULT)
             else:
-                self.match() #Type.CONSTANT, or possibly an enum member
+                self.match(Type.CASE)
+                self.check_case_value()
             self.check_whitespace(0)
             self.match(Type.COLON, MUST_NEWLINE)
             self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
