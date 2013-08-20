@@ -965,6 +965,8 @@ class Styler(object):
                     self.check_enum()
                     self.check_whitespace(0)
                     self.match(Type.SEMICOLON, MUST_NEWLINE)
+            elif self.current_type() == Type.SEMICOLON:
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
             #ruh roh
             else:
                 print "found an awkward type in global space:", \
