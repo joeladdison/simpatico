@@ -835,6 +835,8 @@ class Styler(object):
                 self.check_expression()
                 self.check_whitespace(0)
                 self.match(Type.RSQUARE)
+        if self.current_type() == Type.LSQUARE:
+            self.check_post_identifier()
         # check if function pointer (preceeded by type, that's why not elif)
         if self.current_type() == Type.LPAREN:
             d(["this type is a function pointer"])
