@@ -305,6 +305,7 @@ class Tokeniser(object):
     def tokenise(self, megastring):
         """ Why yes, this is a big function. Be glad it's not the usual parser
         switch statement that's 1000 lines long. """
+        length = len(megastring)
         for n, c in enumerate(megastring):
             #step 0: if we were waiting for the second char in a "==" or
             # similar, grab it and move on already
@@ -407,7 +408,7 @@ class Tokeniser(object):
                     self.multiline_comment = megastring.find("*/", n + 2) + 1
                 elif c == "/" and megastring[n+1] == "/":
                     self.in_singleline_comment = True
-                elif c + megastring[n+1] in ALL_OPS:
+                elif length > n + 2 and c + megastring[n+1] in ALL_OPS:
                     self.end_word()
                     self.multi_char_op = True
                     self.add_to_word(c, n - self.line_start)
@@ -1467,6 +1468,11 @@ class Styler(object):
                 Type.CONSTANT, Type.SIZEOF, Type.LPAREN]:
             self.check_expression()
             self.check_whitespace(0)
+            while self.current_type() == Type.COMMA:
+                self.match(Type.COMMA)
+                self.check_whitespace(1)
+                self.check_expression()
+                self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.BREAK:
             self.match(Type.BREAK)
