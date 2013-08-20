@@ -1392,8 +1392,10 @@ class Styler(object):
             self.check_whitespace(1)
         if self.current_type() in [Type.TYPE, Type.IGNORE, Type.ENUM]:
             self.check_declaration()
-            self.check_whitespace(0)
-            self.match(Type.SEMICOLON, MUST_NEWLINE)
+            #allow for prototypes within functions
+            if self.current_type() == Type.SEMICOLON:
+                self.check_whitespace(0)
+                self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.STRUCT:
             #just in case, check if it's a struct definition
             if self.lookahead([Type.SEMICOLON, Type.LBRACE, Type.ASSIGNMENT])\
