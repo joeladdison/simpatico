@@ -464,7 +464,7 @@ class Errors(object):
                 msg = " misnamed, variables should be namedLikeThis"
             name = token.get_string()
             line_no = token.line_number
-        self.naming_d[line_no] = "[NAMING] " + name + msg
+        self.naming_d[line_no] = "[NAMING] '" + name + "'" + msg
 
     def whitespace(self, token, expected):
         self.total += 1
@@ -537,9 +537,12 @@ class Errors(object):
     def get(self, line_number):
         result = []
         for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.overall,
+                self.line_length_d, self.naming_d, self.overall_d,
                 self.comments_d, self.indent_d]:
-            result.extend(error_type.get(line_number, []))
+            e = error_type.get(line_number, [])
+            if e:
+                result.extend(e)
+                result.append("\n")
         return result
 
     def print_lines(self):
@@ -629,7 +632,8 @@ class Styler(object):
                         print "whitespace check duplicated:", token
                     
         if output_file:
-            self.write_output_file(filename)
+            self.write_output_file()
+            return
 
         if not self.quiet:
             self.errors.print_lines()
@@ -822,13 +826,16 @@ class Styler(object):
         d(["has matching_else: ending at ", self.tokens[i]])
         return False
 
-    def write_output_file(self, filename):
+    def write_output_file(self):
         """go over the file and insert messages when appropriate"""
         line_number = 1
-        outf = open(filename+".style", "w")
-        infile = open(filename, "r")
+        outf = open(self.filename+".styled", "w")
+        infile = open(self.filename, "r")
         for line in infile:
-            outf.writelines(self.errors.get(line_number) + [line])
+            lines = [a for a in self.errors.get(line_number) if a]
+            lines.append(line)
+            outf.writelines(lines)
+            line_number += 1
         infile.close()
         outf.close()
 
@@ -1148,6 +1155,7 @@ class Styler(object):
         d(["check_struct() entered"])
         self.match(Type.STRUCT)
         self.check_whitespace(1)
+        name = None
         if self.current_type() == Type.LBRACE:
             #skip matching an identifier, it isn't there
             pass
@@ -1171,7 +1179,8 @@ class Styler(object):
                 self.match(Type.STAR)
             #leave the type name for the typedef
             return
-        self.check_naming(name, Errors.TYPE)
+        if name:
+            self.check_naming(name, Errors.TYPE)
         self.check_whitespace(1)
         self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_block([Type.RBRACE], DISALLOW_EXPRESSIONS)
@@ -2061,11 +2070,12 @@ if __name__ == '__main__':
     if "-d" in sys.argv:
         DEBUG = True
     hide_violation_msgs = "-q" in sys.argv
+    use_output_file = "-o" in sys.argv
     for f in range(1, len(sys.argv)):
-        if sys.argv[f] in ["-d", "-q"]:
+        if sys.argv[f] in ["-d", "-q", "-o"]:
             continue
         if sys.argv[f].strip():
             print 'Parsing %s...' % sys.argv[f]
-            style = Styler(sys.argv[f], hide_violation_msgs)
+            style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
             print style.errors
     print "THIS IS NOT A GUARANTEE OF CORRECTNESS"
