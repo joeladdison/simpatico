@@ -15,14 +15,14 @@ void good_func(void)
 /* 1 violation */
 void bad_func(void) { return; }
 
-/* 3 violations */
+/* 5 violations */
 int fa(int a) {
     if (a)
     { //violation
         a++;
     } //violation (the whole line of } else if {)
     else if (a+1)
-    {
+    { //violation
         a /= 2;
     } //violation
     else
@@ -58,14 +58,14 @@ int missing_braces(void) {
         return 2;
 }
 
-/* 3 violations */
+/* 5 violations */
 void bad_loops(void) {
     int a;
     for (int i = 0; i < 10; i++) 
     { //violation
         a = i;
     }
-    for ( ; ; ) { break; } //violation
+    for (; ; ) { break; } //violation
     while (!a)  
     { //violation
         a++;
@@ -79,7 +79,7 @@ void bad_loops(void) {
 
 
 /* 3 violations */
-int main () {
+int main() {
     int a = 1;
     switch (a)
     { //violation

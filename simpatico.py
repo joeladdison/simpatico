@@ -438,6 +438,7 @@ class Errors(object):
         self.braces_d = {}
         self.line_length_d = {}
         self.overall_d = {}
+        self.indent_d = {}
         self.total = 0
 
     def naming(self, token, name_type):
@@ -470,6 +471,17 @@ class Errors(object):
                 "[WHITESPACE] '", token.line, "' at ",
                 "position %d: expected %d whitespace, found %d " % \
                 (token.get_position(), expected, token.get_spacing_left())])
+                
+    def indent(self, token, expected):
+        self.total += 1
+        assert token.get_spacing_left() != expected
+        if self.indent_d.get(token.line_number) \
+                or self.braces_d.get(token.line_number):
+            return
+        self.indent_d[token.line_number] = "".join([
+                "[INDENTATION] '", token.line,
+                "' expected indent of %d spaces, found %d" % \
+                (expected, token.get_spacing_left())])
         
     def line_length(self, line_number, length):
         self.total += 1
@@ -494,7 +506,7 @@ class Errors(object):
         self.total += 1
         msg = "WHOOPS"
         if error_type == Errors.IF:
-            msg = ", if braces should look like: if (cond) {"
+            msg = ", opening braces should look like: if (cond) {"
         elif error_type == Errors.ELSE:
             msg = ", else braces should look like: } else {"
         elif error_type == Errors.ELSEIF:
@@ -503,6 +515,9 @@ class Errors(object):
             msg = ", an opening brace should be the last character on the line"
         elif error_type == Errors.MISSING:
             msg = ", braces are required, even for single line blocks"
+        if self.indent_d.get(token.line_number) \
+                and error_type == Errors.IF:
+            del self.indent_d[token.line_number]
         self.braces_d[token.line_number] = \
                 "[BRACES] at position %d%s" % (token.get_position(), msg)
 
@@ -519,13 +534,14 @@ class Errors(object):
         result = []
         for error_type in [self.braces_d, self.whitespace_d,
                 self.line_length_d, self.naming_d, self.overall,
-                self.comments_d]:
+                self.comments_d, self.indent_d]:
             result.extend(error_type.get(line_number, []))
         return result
 
     def print_lines(self):
         for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.comments_d]:
+                self.line_length_d, self.naming_d, self.comments_d,
+                self.indent_d]:
             for key in sorted(error_type.keys()):
                 print "line", key, ":", error_type[key]
         for key in sorted(self.overall_d.keys()):
@@ -537,13 +553,14 @@ class Errors(object):
             return "No errors found"
         counts = [len(error_type.keys()) for error_type in [
                 self.braces_d, self.whitespace_d, self.comments_d,
-                self.naming_d, self.overall_d, self.line_length_d]]
+                self.naming_d, self.overall_d, self.line_length_d,
+                self.indent_d]]
         #cap the violations to 5 per category
         for i in range(len(counts)):
             if counts[i] > 5:
                 counts[i] = 5
         return " ".join(["%d total errors found, capped at " % self.total,
-                "B:%d W:%d C:%d N:%d O:%d L:%d" % tuple(counts)])
+                "B:%d W:%d C:%d N:%d O:%d L:%d I:%d" % tuple(counts)])
 
 class Styler(object):
     MAX = False
@@ -730,9 +747,12 @@ class Styler(object):
         #(provided they aren't the first)
         if token.inner_tokens and token.inner_position != 0:
             return
+        indent = False
         if expected == -1:
+            indent = True
             expected = self.depth * INDENT_SIZE
         if self.line_continuation and token.get_type() != Type.RBRACE:
+            indent = True
             expected = self.depth * INDENT_SIZE + LINE_CONTINUATION_SIZE
         if token.whitespace_checked:
             d(["whitespace check duplicated:", token])
@@ -749,11 +769,23 @@ class Styler(object):
                 d(["whitespace \033[1merror\033[0m:", "expected", "1 or 0",
                         "with token", token, "but had",
                         token.get_spacing_left()])
-                self.errors.whitespace(token, expected)
+                if self.last_real_token.get_type() in \
+                        [Type.LBRACE, Type.RBRACE]:
+                    pass
+                elif indent:
+                    self.errors.indent(token, expected)
+                else:
+                    self.errors.whitespace(token, expected)
         elif token.get_spacing_left() != expected:
             d(["whitespace \033[1merror\033[0m:", "expected", expected,
                     "with token", token, "but had", token.get_spacing_left()])
-            self.errors.whitespace(token, expected)
+            if self.last_real_token.get_type() in \
+                    [Type.LBRACE, Type.RBRACE]:
+                pass
+            elif indent:
+                self.errors.indent(token, expected)
+            else:
+                self.errors.whitespace(token, expected)
         if self.line_continuation:
             self.line_continuation = False
 
@@ -1302,7 +1334,10 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.SEMICOLON)
         else:
-            self.check_whitespace((self.depth + 1) * INDENT_SIZE)
+            self.depth += 1
+            self.line_continuation = False
+            self.check_whitespace()
+            self.depth -= 1
             self.errors.braces(self.current_token, Errors.MISSING)
             self.check_statement()
 
@@ -1370,19 +1405,7 @@ class Styler(object):
         self.match(Type.RPAREN)
         self.check_whitespace(1)
         self.match(Type.LBRACE, MUST_NEWLINE)
-        self.depth += 1
-        while self.current_type() in [Type.CASE, Type.DEFAULT]:
-            self.check_whitespace(self.depth * INDENT_SIZE)
-            if self.current_type() == Type.DEFAULT:
-                self.match(Type.DEFAULT)
-            else:
-                self.match(Type.CASE)
-                self.check_case_value()
-            self.check_whitespace(0)
-            self.match(Type.COLON, MUST_NEWLINE)
-            self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
-        
-        self.depth -= 1
+        self.check_block()
         self.check_whitespace(self.depth * INDENT_SIZE)
         self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
         d(["check_switch(): exited", self.current_token])
@@ -1507,8 +1530,19 @@ class Styler(object):
             self.check_condition()
             self.should_have_block(has_else)
             while self.current_type() == Type.ELSE:
-                self.check_whitespace(1)
+                if self.last_real_token._type != Type.RBRACE:
+                    self.check_whitespace()
+                else:
+                    self.check_whitespace(1)
                 self.match(Type.ELSE)
+                if self.current_type() not in [Type.LBRACE, Type.IF]:
+                    self.errors.braces(self.current_token, Errors.MISSING)
+                    self.depth += 1
+                    self.line_continuation = False
+                    self.check_whitespace()
+                    self.depth -= 1
+                    self.check_statement()
+                    continue
                 if self.current_type() == Type.IF:
                     self.check_whitespace(1, ALLOW_ZERO)
                     self.match(Type.IF)
@@ -1739,8 +1773,20 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.check_precompile()
                 continue
-            self.check_whitespace()
-            self.check_statement(allow_expressions)
+            elif self.current_type() in [Type.CASE, Type.DEFAULT]:
+                while self.current_type() in [Type.CASE, Type.DEFAULT]:
+                    self.check_whitespace(self.depth * INDENT_SIZE)
+                    if self.current_type() == Type.DEFAULT:
+                        self.match(Type.DEFAULT)
+                    else:
+                        self.match(Type.CASE)
+                        self.check_case_value()
+                    self.check_whitespace(0)
+                    self.match(Type.COLON, MUST_NEWLINE)
+                    self.check_block([Type.CASE, Type.DEFAULT, Type.RBRACE])
+            else:
+                self.check_whitespace()
+                self.check_statement(allow_expressions)
         self.depth -= 1
         d(["check_block(): exited", self.current_token, "\n"])
 
