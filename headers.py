@@ -562,6 +562,20 @@ standard_header_types = {
         "res_state"],
 "strings.h" : ["size_t", "__locale_t", "locale_t"],
 "error.h" : [],
-"err.h" : ["__gnuc_va_list"]
+"err.h" : ["__gnuc_va_list"],
+"malloc.h" : ["ptrdiff_t", "size_t", "wchar_t", "__u_char", "__u_short",
+        "__u_int", "__u_long", "__int8_t", "__uint8_t", "__int16_t",
+        "__uint16_t", "__int32_t", "__uint32_t", "__int64_t", "__uint64_t",
+        "__quad_t", "__u_quad_t", "__dev_t", "__uid_t", "__gid_t", "__ino_t",
+        "__ino64_t", "__mode_t", "__nlink_t", "__off_t", "__off64_t",
+        "__pid_t", "__fsid_t", "__clock_t", "__rlim_t", "__rlim64_t", "__id_t",
+        "__time_t", "__useconds_t", "__suseconds_t", "__daddr_t", "__swblk_t",
+        "__key_t", "__clockid_t", "__timer_t", "__blksize_t", "__blkcnt_t",
+        "__blkcnt64_t", "__fsblkcnt_t", "__fsblkcnt64_t", "__fsfilcnt_t",
+        "__fsfilcnt64_t", "__ssize_t", "__loff_t", "__qaddr_t", "__caddr_t",
+        "__intptr_t", "__socklen_t", "_IO_FILE", "FILE", "__FILE",
+        "__mbstate_t", "_G_fpos_t", "_G_fpos64_t", "__gnuc_va_list",
+        "_IO_jump_t", "_IO_FILE", "_IO_lock_t", "__codecvt_result", "_IO_FILE",
+        "_IO_FILE_plus", "va_list", "off_t", "ssize_t", "fpos_t"]
 }
 
