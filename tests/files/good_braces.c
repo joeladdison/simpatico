@@ -27,7 +27,7 @@ void if_continutation(void) {
     }
 }
 
-int fa(int a) 
+int fa(int Bad) 
 {
     if (a) {
         a++;
@@ -50,7 +50,7 @@ int fb(int a) {
     return a;
 }
 
-int main() {
+int main(int argc, char **argv) {
     int a;
     switch (a) {
         case 0:

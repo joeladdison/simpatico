@@ -28,7 +28,7 @@ extern int errno;
 
 /* these two vars are for testing type-qualifiers */
 static long int stat = 0532L;
-volatile unsigned char vuc;
+volatile unsigned char vuc; /* not a good name since it's entirely the type */
 
 /* this is testing the #include "dummy" correctly checks type */
 RidiculousIntType heresAnotherGlobal = 0b01010; // a GCC extension
@@ -96,7 +96,6 @@ func_a(char *str, int i) {
     return linux * str[i]; //what's linux, you ask? a standard #define
 }
 
-/* a function prototype */
 void proto(const int * const param);
 
 /* fun with 'arry */
@@ -199,7 +198,7 @@ void test_misc(int a, int b, int *e) {
         b += e[MORE_NUMBERS];
     }
 #undef MORE_NUMBERS
-    for (int new = 7; ; a++) {
+    for (int New = 7; ; a++) {
         break;
     }
     while (a) {

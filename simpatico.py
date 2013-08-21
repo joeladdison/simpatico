@@ -191,8 +191,8 @@ class Word(object):
             self._type = Type.RPAREN
         elif line == "-":
             self._type = Type.MINUS
-	elif line == "+":
-	    self._type = Type.PLUS
+        elif line == "+":
+            self._type = Type.PLUS
         elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
         elif line == "*":
@@ -280,6 +280,7 @@ class Tokeniser(object):
                 '?', '[', ']', '#', '=']
         self.current_word = Word()
         self.space_left = 0
+        self.comment_lines = {}
         self.current_word_start = 1
         #well that was fun, now we should do some real work
         f = open(filename, "r")
@@ -331,6 +332,7 @@ class Tokeniser(object):
 
             #step 2: continue on while inside a multiline comment
             elif self.multiline_comment:
+                self.comment_lines[self.line_number] = True
                 #if we've reached the end of the comment
                 if self.multiline_comment == n:
                     self.multiline_comment = 0
@@ -406,8 +408,10 @@ class Tokeniser(object):
                 elif c == "/" and megastring[n+1] == "*":
                     #the +2 here avoids recognising /*/ as a complete comment
                     self.multiline_comment = megastring.find("*/", n + 2) + 1
+                    self.comment_lines[self.line_number] = True
                 elif c == "/" and megastring[n+1] == "/":
                     self.in_singleline_comment = True
+                    self.comment_lines[self.line_number] = True
                 elif length > n + 2 and c + megastring[n+1] in ALL_OPS:
                     self.end_word()
                     self.multi_char_op = True
@@ -528,7 +532,7 @@ class Errors(object):
             msg = "Functions should be preceeded by explanatory comments"
         elif error_type == Errors.GLOBALS:
             msg = "Global variables should be commented"
-        self.comments[line_number] = msg
+        self.comments_d[line_number] = "[COMMENTS] %s" % msg
 
     def get(self, line_number):
         result = []
@@ -588,11 +592,11 @@ class Styler(object):
         self.infile.close()
         self.position = 0
         self.depth = 0
-        self.comments = {}
         self.line_continuation = False
         #then the guts of it all
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
+        self.comments = tokeniser.comment_lines
         try:
             self.current_token = self.tokens[self.position]
             self.last_real_token = Word()
@@ -601,7 +605,6 @@ class Styler(object):
                 d(["pre-process: skipping newline/comment", self.current_token])
                 if self.current_type() == Type.COMMENT:
                     self.check_whitespace()
-                    self.comments[self.current_token.line_number] = True
                 self.position += 1
                 self.current_token = self.tokens[self.position]
             self.process_globals()
@@ -740,6 +743,16 @@ class Styler(object):
                 self.errors.braces(self.last_real_token, Errors.ELSE)
             else:
                 self.errors.braces(self.last_real_token, Errors.RUNON)
+
+    def check_comment(self, token, declType):
+        if declType == Errors.FUNCTION:
+            if not self.comments.get(token.line_number - 1):
+                self.errors.comments(token.line_number, declType)
+        elif declType == Errors.VARIABLE and self.depth == 0:
+            if not self.comments.get(token.line_number - 1) and \
+                    not self.comments.get(token.line_number):
+                self.errors.comments(token.line_number, Errors.GLOBALS)
+            
 
     def check_whitespace(self, expected = -1, one_or_zero = not ALLOW_ZERO):
         token = self.current_token
@@ -1110,14 +1123,18 @@ class Styler(object):
             return
         name = token.line
         if name_type == Errors.VARIABLE:
-            if "_" in name or len(name) == 1 and name.isupper():
+            if "_" in name or name[0].isupper():
                 self.errors.naming(token, name_type)
+            self.check_comment(token, name_type)
         elif name_type == Errors.FUNCTION:
+            if name == "main":
+                return
             #if any uppercase char in the name, it's bad
             for c in name:
                 if c.isupper():
                     self.errors.naming(token, name_type)
                     break
+            self.check_comment(token, name_type)
         elif name_type == Errors.TYPE:
             if "_" in name or not name[0].isupper():
                 self.errors.naming(token, name_type)
@@ -1134,7 +1151,8 @@ class Styler(object):
         if self.current_type() == Type.LBRACE:
             #skip matching an identifier, it isn't there
             pass
-        else: 
+        else:
+            name = self.current_token
             self.match() # struct identifier
         #ensure it's the block, then start it
         if self.current_type() == Type.SEMICOLON:
@@ -1153,6 +1171,7 @@ class Styler(object):
                 self.match(Type.STAR)
             #leave the type name for the typedef
             return
+        self.check_naming(name, Errors.TYPE)
         self.check_whitespace(1)
         self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
         self.check_block([Type.RBRACE], DISALLOW_EXPRESSIONS)
@@ -1163,7 +1182,6 @@ class Styler(object):
         if not isTypedef and self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1, is_pointer);
             self.check_naming(self.current_token, Errors.VARIABLE)
-            #TODO check for a comment
             #deal with the potential assignment while we're there
             self.check_expression()
             self.check_attribute()
@@ -1344,12 +1362,12 @@ class Styler(object):
     def check_condition(self):
         # check spacing on the parenthesis
         self.check_whitespace(1, ALLOW_ZERO) # if/while (
-	lparen = True
-	if self.current_type() != Type.LPAREN:
-	    lparen = False
-	else:
+        lparen = True
+        if self.current_type() != Type.LPAREN:
+            lparen = False
+        else:
             self.match(Type.LPAREN)
-	    self.check_whitespace(0) # (exp
+            self.check_whitespace(0) # (exp
         self.check_expression()
         while self.current_type() == Type.COMMA:
             self.check_whitespace(0)
@@ -1357,7 +1375,7 @@ class Styler(object):
             self.check_whitespace(1)
             self.check_expression()
         self.check_whitespace(0) # exp)
-	if lparen:
+        if lparen:
             self.match(Type.RPAREN)
 
     def check_do(self):
@@ -1799,6 +1817,7 @@ class Styler(object):
         #moves to the next meaningful token (but in this case we need to know
         #if it's a newline)
         next = self.tokens[self.position+1]
+        self.check_naming(first, Errors.DEFINE)
         self.match() #the identifier (can't rely on it being Type.UNKNOWN)
         #just defining, no other values, nuffin'
         if next.get_type() in [Type.NEWLINE, Type.COMMENT]:
@@ -1830,15 +1849,14 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             if first._type == Type.UNKNOWN: #direct access deliberate
-                self.check_naming(first, Errors.DEFINE)
-                
                 for token in self.tokens[self.position:]:
                     if token.line == first.line:
                         token.inner_tokens = tokens
             #oh my, they #defined an existing symbol/keyword
             else:
                 print "this is terrible, why do this to me"
-#TODO violate them
+                self.errors.overall(first.line_number,
+                        "do not #define a keyword/constant to something else")
                 for n in xrange(self.position + 1, len(self.tokens)):
                     if self.tokens[n]._type == first._type:
                         self.tokens[n]._type = tokens[0]._type
@@ -2023,6 +2041,7 @@ class Styler(object):
             self.match(Type.COMMA)
             self.check_whitespace(1)
             self.check_whitespace(1, self.match_pointers())
+            self.check_naming(self.current_token)
             self.match(Type.UNKNOWN) #identifier
             self.check_post_identifier()
             if self.current_type() == Type.ASSIGNMENT:
