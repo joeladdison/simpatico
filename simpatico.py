@@ -752,7 +752,7 @@ class Styler(object):
         if declType == Errors.FUNCTION:
             if not self.comments.get(token.line_number - 1):
                 self.errors.comments(token.line_number, declType)
-        elif declType == Errors.VARIABLE and self.depth == 0:
+        elif declType == Errors.GLOBALS:
             if not self.comments.get(token.line_number - 1) and \
                     not self.comments.get(token.line_number):
                 self.errors.comments(token.line_number, Errors.GLOBALS)
@@ -1129,7 +1129,7 @@ class Styler(object):
                 self.errors.naming(token, name_type)
             return
         name = token.line
-        if name_type == Errors.VARIABLE:
+        if name_type in [Errors.VARIABLE, Errors.GLOBALS]:
             if "_" in name or name[0].isupper():
                 self.errors.naming(token, name_type)
             self.check_comment(token, name_type)
@@ -2029,7 +2029,10 @@ class Styler(object):
         d(["decl is a var", name])
         #well, it's a non-func then
         if not external and name:
-            self.check_naming(name, Errors.VARIABLE)
+            if self.depth == 0:
+                self.check_naming(name, Errors.GLOBALS)
+            else:
+                self.check_naming(name, Errors.VARIABLE)
         #is it an array?
         if self.current_type() == Type.LSQUARE:
             array = True
