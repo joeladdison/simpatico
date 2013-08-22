@@ -281,7 +281,6 @@ class Tokeniser(object):
         self.current_word = Word()
         self.space_left = 0
         self.comment_lines = {}
-        self.overlong_lines = []
         self.current_word_start = 1
         #well that was fun, now we should do some real work
         f = open(filename, "r")
@@ -361,9 +360,6 @@ class Tokeniser(object):
                     self.end_word()
                     #mark it as in a string still/again
                     self.in_string = True
-                    if n - self.line_start > 79:
-                        self.overlong_lines.append((self.line_number,
-                                n - self.line_start))
                     self.line_number += 1
                     self.line_start = n + 1
                     self.add_to_word('"', n - self.line_start)
@@ -371,9 +367,6 @@ class Tokeniser(object):
             elif c == '\n':
                 #out with the old
                 self.end_word()
-                if n - self.line_start > 79:
-                    self.overlong_lines.append((self.line_number,
-                            n - self.line_start))
                 #in with the new..
                 self.line_number += 1
                 self.line_start = n + 1
@@ -599,9 +592,17 @@ class Styler(object):
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
         self.comments = tokeniser.comment_lines
-        for line in tokeniser.overlong_lines:
-            self.errors.line_length(line[0], line[1])
-
+        #scan for overlong lines
+        lnum = 1
+        longs = 0
+        f = open(filename, "r")
+        for line in f:
+            line = line.expandtabs(8)
+            if len(line) > 81: #allows for \n
+                longs += 1
+                self.errors.line_length(lnum, len(line))
+            lnum += 1
+        f.close()
         try:
             self.current_token = self.tokens[self.position]
             self.last_real_token = Word()
