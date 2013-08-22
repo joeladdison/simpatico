@@ -281,6 +281,7 @@ class Tokeniser(object):
         self.current_word = Word()
         self.space_left = 0
         self.comment_lines = {}
+        self.overlong_lines = []
         self.current_word_start = 1
         #well that was fun, now we should do some real work
         f = open(filename, "r")
@@ -360,6 +361,9 @@ class Tokeniser(object):
                     self.end_word()
                     #mark it as in a string still/again
                     self.in_string = True
+                    if n - self.line_start > 79:
+                        self.overlong_lines.append((self.line_number,
+                                n - self.line_start))
                     self.line_number += 1
                     self.line_start = n + 1
                     self.add_to_word('"', n - self.line_start)
@@ -367,6 +371,9 @@ class Tokeniser(object):
             elif c == '\n':
                 #out with the old
                 self.end_word()
+                if n - self.line_start > 79:
+                    self.overlong_lines.append((self.line_number,
+                            n - self.line_start))
                 #in with the new..
                 self.line_number += 1
                 self.line_start = n + 1
@@ -585,14 +592,6 @@ class Styler(object):
             self.path = filename[:filename.rfind("/") + 1]
         elif "\\" in filename:
             self.path = filename[:filename.rfind("\\") + 1]
-        #quick run for line lengths
-        line_number = 0
-        self.infile = open(self.filename, "r")
-        for line in self.infile:
-            line_number += 1
-            if len(line) > 80: #79 + \n
-                self.errors.line_length(line_number, len(line) - 1)
-        self.infile.close()
         self.position = 0
         self.depth = 0
         self.line_continuation = False
@@ -600,6 +599,9 @@ class Styler(object):
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
         self.comments = tokeniser.comment_lines
+        for line in tokeniser.overlong_lines:
+            self.errors.line_length(line[0], line[1])
+
         try:
             self.current_token = self.tokens[self.position]
             self.last_real_token = Word()
