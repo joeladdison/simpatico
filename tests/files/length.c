@@ -12,12 +12,12 @@ int main() {
         x = 0;
     }
 
-    // the following line is 80 characters long.
+    // the following line is 80 characters long. TOO long
     if (x == 0 || x == 1 || x == 2 || x == 3 || x == 4 || x == 5 || x == 1000) {
         x = 0;
     }
 
-    // the following line has whitespace on the end
+    // the following line has whitespace on the end, too long
     if (x == 0 || x == 1 || x == 2 || x == 3 || x == 4 || x == 5) {             
         x = 0;
     }

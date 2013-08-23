@@ -15,6 +15,7 @@ STOP_ON_DUPLICATED_WHITESPACE_CHECK = DEBUG and False
 INDENT_SIZE = 4
 LINE_CONTINUATION_SIZE = 8
 MAX_FUNCTION_LENGTH = 50
+MAX_LINE_LENGTH = 80 #include newlines
 
 ALLOW_ZERO = True
 (NO_NEWLINE, MAY_NEWLINE, MUST_NEWLINE) = range(3)
@@ -598,7 +599,7 @@ class Styler(object):
         f = open(filename, "r")
         for line in f:
             line = line.expandtabs(8)
-            if len(line) > 81: #allows for \n
+            if len(line) > MAX_LINE_LENGTH:
                 longs += 1
                 self.errors.line_length(lnum, len(line))
             lnum += 1
@@ -970,7 +971,7 @@ class Styler(object):
         while True:
             d(["global space: ", self.current_token])
             self.line_continuation = False
-            self.check_whitespace(0)
+            self.check_whitespace()
             while self.current_type() == Type.IGNORE:
                 self.match(Type.IGNORE)
                 self.check_whitespace(1)
@@ -1204,8 +1205,6 @@ class Styler(object):
         if self.current_type() == Type.ATTRIBUTE:
             #ruh roh
             #TODO better manual checking required
-            print "manual checking of __attribute__ tag required on line", \
-                    self.current_token.line_number
             self.check_whitespace(1)
             self.match(Type.ATTRIBUTE)
             self.check_whitespace(1, ALLOW_ZERO)

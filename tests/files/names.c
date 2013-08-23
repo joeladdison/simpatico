@@ -1,31 +1,31 @@
+#include <stdbool.h>
 #define NUMBER_ONE 1
-#define two 2
-#define Three 3
-
+#define two 2 //violation
+#define Three 3 //violation
 typedef struct {
     int x;
-    int Y;
+    int Y; //violation
 } Point;
-
+#include <unistd.h>
 typedef struct {
-} lowercase;
+} lowercase; //violation
 
 int main() {
     int four = 4;
     char letter;
     bool trueOrFalse;
 
-    int Array[5];
-    int Five, Six = 6, *Seven;
-    bool AlsoInvalid = false;
-    pid_t** UPPERCASE;
-    char *String;
-    unsigned long  BigNumber=1<<42;
+    int Array[5]; //violation
+    int Five, Six = 6, *Seven; //violation
+    bool AlsoInvalid = false; //violation
+    pid_t** UPPERCASE; //violation
+    char *String; //violation
+    unsigned long  BigNumber=1<<42; //violation
 
-    void* (*Function)(void*);
+    void* (*Function)(void*); //violation
 
     Point point1;
-    Point Point2;
+    Point Point2; //violation
 }
 
 // int NotAVar;

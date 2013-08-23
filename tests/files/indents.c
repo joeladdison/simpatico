@@ -8,10 +8,10 @@ int main() {
         //error
         int i;
 
-    for (i = 0; i <= 4; ++i) {
+    for (i = 0; i <= 4;
+        ++i) { //violation
         printf("sum is now %d\n", sum);
-       //error
-       sum += i;
+       sum += i; //error
     }
 
     // A really long statement that has to cover lots of lines
@@ -19,7 +19,7 @@ int main() {
             sum == 6 || sum == 7 || sum == 8 || sum == 9 || sum == 11 ||
         //error
         sum == 12 || sum > 12) {
-        printf("something went %s wrong!\n","terribly"); //error: ", "
+        printf("something went %s wrong!\n", "terribly");
         printf("oh %s!\n", "noes");
     } else {
     printf("the sum is %d!\n", sum); //error

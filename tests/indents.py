@@ -1,21 +1,17 @@
-import unittest
-import simpatico
+from tests import TestSimpatico
 
-class TestIndents(unittest.TestCase):
-    EXPECTED = [(3, 'Indentation error (expected 0, got 4)'),
-                (7, 'Indentation error (expected 4, got 8)'),
-                (11, 'Indentation error (expected 8, got 7)'),
-                (17, 'Indentation error (expected 12, got 8)'),
-                (21, 'Indentation error (expected 8, got 4)'),
-                (27, 'Indentation error (expected 12, got 16)'),
-                (28, 'Indentation error (expected 12, got 16)'),
-                (30, 'Indentation error (expected 12, got 8)'),
-                (40, 'Indentation error (expected 12, got 8)'),
-                (44, 'Indentation error (expected 0, got 4)')]
-    def runTest(self):
-        lines = simpatico.get_lines('tests/files/indents.c')
-        errors = simpatico.check_indents(lines)
-        self.assertItemsEqual(errors, self.EXPECTED)
+class TestIndents(TestSimpatico):
+
+    def test_indents(self):
+        expected_error_lines = [4, 9, 12, 14, 32, 33, 36, 47]
+
+        f = 'tests/files/indents.c'
+        s = self.run_simpatico(f)
+        indent_errors = len(s.errors.indent_d.keys())
+        found_error_lines = set(s.errors.indent_d.keys())
+
+        self.assertEqual(indent_errors, len(expected_error_lines))
+        self.assertSetEqual(found_error_lines, set(expected_error_lines))
 
 if __name__ == "__main__":
     unittest.main()
