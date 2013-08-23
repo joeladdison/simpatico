@@ -9,7 +9,6 @@ $ python -m unittest tests
 
 """
 import unittest
-import TestSimpatico
 
 from simpatico import Styler
 
