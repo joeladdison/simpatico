@@ -1,39 +1,38 @@
 #include <stdio.h>
 
-    //error
-    int one = 1;
+    int one = 1;     //error
 
 int main() {
     int sum = 0;
-        //error
-        int i;
+        int i;         //error
 
-    for (i = 0; i <= 4;
-        ++i) { //violation
+    for (i = 0; i <= 4; ++i) {
         printf("sum is now %d\n", sum);
        sum += i; //error
     }
 
     // A really long statement that has to cover lots of lines
     if (sum == 1 || sum == 2 || sum == 3 || sum == 4 || sum == 5 ||
-            sum == 6 || sum == 7 || sum == 8 || sum == 9 || sum == 11 ||
-        //error
-        sum == 12 || sum > 12) {
+        sum == 6 || sum == 7 || sum == 8 || sum == 9 || sum == 11 || //error
+            sum == 12 || sum > 12) {
         printf("something went %s wrong!\n", "terribly");
         printf("oh %s!\n", "noes");
     } else {
     printf("the sum is %d!\n", sum); //error
     }
+    
+    if (i)
+        i++; //good, but brace problem
+    else
+        i--; //good, but brace problem
 
     int x = 2, y;
-    switch(x) { //error (should be switch (x) {
+    switch(x) {
         case 0:
-            //errors
-                y = 0;
-                break;
+                y = 0; //error
+                break; //error
         case 1:
-        //error
-        y = 1;
+        y = 1;         //error
         case 2:
             y = 2;
             break;
@@ -43,9 +42,7 @@ int main() {
             break;
         default:
             x = 0;
-            //error
-        y = -1;
+        y = -1;             //error
             break;
     }
-    //error
-    }
+    }             //error

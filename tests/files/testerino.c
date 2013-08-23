@@ -144,7 +144,7 @@ void if_continutation(void) {
         a |= 0x01;
         a &= 0x10;
     } else if (5 && 7
-        && 6) {
+            && 6) {
         a >>= 1;
     }
     return;

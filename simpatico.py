@@ -769,12 +769,12 @@ class Styler(object):
         if token.inner_tokens and token.inner_position != 0:
             return
         indent = False
-        if expected == -1:
-            indent = True
-            expected = self.depth * INDENT_SIZE
         if self.line_continuation and token.get_type() != Type.RBRACE:
             indent = True
             expected = self.depth * INDENT_SIZE + LINE_CONTINUATION_SIZE
+        elif expected == -1:
+            indent = True
+            expected = self.depth * INDENT_SIZE
         if token.whitespace_checked:
             d(["whitespace check duplicated:", token])
             token.whitespace_checked += 1
@@ -785,7 +785,7 @@ class Styler(object):
                 assert False #kill this infinite loop
             return
         token.whitespace_checked += 1
-        if one_or_zero:
+        if one_or_zero and not self.line_continuation:
             if expected <= 1 and token.get_spacing_left() > 1:
                 d(["whitespace \033[1merror\033[0m:", "expected", "1 or 0",
                         "with token", token, "but had",
@@ -800,10 +800,7 @@ class Styler(object):
         elif token.get_spacing_left() != expected:
             d(["whitespace \033[1merror\033[0m:", "expected", expected,
                     "with token", token, "but had", token.get_spacing_left()])
-            if self.last_real_token.get_type() in \
-                    [Type.LBRACE, Type.RBRACE]:
-                pass
-            elif indent:
+            if indent:
                 self.errors.indent(token, expected)
             else:
                 self.errors.whitespace(token, expected)
