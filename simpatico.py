@@ -463,6 +463,8 @@ class Errors(object):
                 msg = " misnamed, #defines should be NAMED_LIKE_THIS"
             elif name_type == Errors.VARIABLE:
                 msg = " misnamed, variables should be namedLikeThis"
+            else:
+                raise #simon was terrible, tell him about this one
             name = token.get_string()
             line_no = token.line_number
         self.naming_d[line_no] = "[NAMING] '" + name + "'" + msg
@@ -530,7 +532,7 @@ class Errors(object):
         self.total += 1
         msg = "WHOOPS"
         if error_type == Errors.FUNCTION:
-            msg = "Functions should be preceeded by explanatory comments"
+            msg = "Functions should be preceded by explanatory comments"
         elif error_type == Errors.GLOBALS:
             msg = "Global variables should be commented"
         self.comments_d[line_number] = "[COMMENTS] %s" % msg
@@ -1132,7 +1134,7 @@ class Styler(object):
         name = token.line
         if name_type in [Errors.VARIABLE, Errors.GLOBALS]:
             if "_" in name or name[0].isupper():
-                self.errors.naming(token, name_type)
+                self.errors.naming(token, Errors.VARIABLE)
             self.check_comment(token, name_type)
         elif name_type == Errors.FUNCTION:
             if name == "main":
