@@ -813,20 +813,23 @@ class Styler(object):
         d(["has matching_else: starting at ", self.current_token])
         i = self.position
         depth = 0
-        while i < (self.tokens) and depth >= 0:
-            i += 1
-            if self.tokens[i].get_type() == Type.RBRACE:
-                depth -= 1
+        try:
+            while i < (self.tokens) and depth >= 0:
                 i += 1
-                if depth == 0:
-                    while self.tokens[i].get_type() in [Type.COMMENT,
-                            Type.NEWLINE]:
-                        i += 1
-                    d(["has matching_else: ending at ", self.tokens[i]])
-                    return self.tokens[i].get_type() == Type.ELSE
-            elif self.tokens[i].get_type() == Type.LBRACE:
-                depth += 1
-        d(["has matching_else: ending at ", self.tokens[i]])
+                if self.tokens[i].get_type() == Type.RBRACE:
+                    depth -= 1
+                    i += 1
+                    if depth == 0:
+                        while self.tokens[i].get_type() in [Type.COMMENT,
+                                Type.NEWLINE]:
+                            i += 1
+                        d(["has matching_else: ending at ", self.tokens[i]])
+                        return self.tokens[i].get_type() == Type.ELSE
+                elif self.tokens[i].get_type() == Type.LBRACE:
+                    depth += 1
+        except IndexError as e:
+            pass
+        d(["has matching_else: ending at ", self.tokens[self.position]])
         return False
 
     def write_output_file(self):
