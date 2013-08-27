@@ -1963,7 +1963,7 @@ class Styler(object):
                 d(["decl is a func returning func pointer"])
             else:
                 d(["decl is a func", name])
-                self.check_whitespace(0)
+                self.check_whitespace(1, ALLOW_ZERO)
             param_names = []
             self.match(Type.LPAREN)
             #arg matching time
