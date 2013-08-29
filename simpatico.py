@@ -463,6 +463,8 @@ class Errors(object):
                 msg = " misnamed, #defines should be NAMED_LIKE_THIS"
             elif name_type == Errors.VARIABLE:
                 msg = " misnamed, variables should be namedLikeThis"
+            else:
+                raise #simon was terrible, tell him about this one
             name = token.get_string()
             line_no = token.line_number
         self.naming_d[line_no] = "[NAMING] '" + name + "'" + msg
@@ -530,7 +532,7 @@ class Errors(object):
         self.total += 1
         msg = "WHOOPS"
         if error_type == Errors.FUNCTION:
-            msg = "Functions should be preceeded by explanatory comments"
+            msg = "Functions should be preceded by explanatory comments"
         elif error_type == Errors.GLOBALS:
             msg = "Global variables should be commented"
         self.comments_d[line_number] = "[COMMENTS] %s" % msg
@@ -811,20 +813,23 @@ class Styler(object):
         d(["has matching_else: starting at ", self.current_token])
         i = self.position
         depth = 0
-        while i < (self.tokens) and depth >= 0:
-            i += 1
-            if self.tokens[i].get_type() == Type.RBRACE:
-                depth -= 1
+        try:
+            while i < (self.tokens) and depth >= 0:
                 i += 1
-                if depth == 0:
-                    while self.tokens[i].get_type() in [Type.COMMENT,
-                            Type.NEWLINE]:
-                        i += 1
-                    d(["has matching_else: ending at ", self.tokens[i]])
-                    return self.tokens[i].get_type() == Type.ELSE
-            elif self.tokens[i].get_type() == Type.LBRACE:
-                depth += 1
-        d(["has matching_else: ending at ", self.tokens[i]])
+                if self.tokens[i].get_type() == Type.RBRACE:
+                    depth -= 1
+                    i += 1
+                    if depth == 0:
+                        while self.tokens[i].get_type() in [Type.COMMENT,
+                                Type.NEWLINE]:
+                            i += 1
+                        d(["has matching_else: ending at ", self.tokens[i]])
+                        return self.tokens[i].get_type() == Type.ELSE
+                elif self.tokens[i].get_type() == Type.LBRACE:
+                    depth += 1
+        except IndexError as e:
+            pass
+        d(["has matching_else: ending at ", self.tokens[self.position]])
         return False
 
     def write_output_file(self):
@@ -1132,7 +1137,7 @@ class Styler(object):
         name = token.line
         if name_type in [Errors.VARIABLE, Errors.GLOBALS]:
             if "_" in name or name[0].isupper():
-                self.errors.naming(token, name_type)
+                self.errors.naming(token, Errors.VARIABLE)
             self.check_comment(token, name_type)
         elif name_type == Errors.FUNCTION:
             if name == "main":
@@ -1961,7 +1966,7 @@ class Styler(object):
                 d(["decl is a func returning func pointer"])
             else:
                 d(["decl is a func", name])
-                self.check_whitespace(0)
+                self.check_whitespace(1, ALLOW_ZERO)
             param_names = []
             self.match(Type.LPAREN)
             #arg matching time
