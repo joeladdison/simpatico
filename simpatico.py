@@ -1199,6 +1199,13 @@ class Styler(object):
             self.check_naming(self.current_token, Errors.VARIABLE)
             #deal with the potential assignment while we're there
             self.check_expression()
+            while self.current_type() == Type.COMMA:
+                self.check_whitespace(0);
+                self.match(Type.COMMA);
+                self.check_whitespace(1, self.match_pointers());
+                self.check_naming(self.current_token, Errors.VARIABLE)
+                #deal with the potential assignment while we're there
+                self.check_expression()
             self.check_attribute()
         d(["check_struct() exited", self.current_token])
         
@@ -2085,4 +2092,5 @@ if __name__ == '__main__':
             print 'Parsing %s...' % sys.argv[f]
             style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
             print style.errors
-    print "THIS IS NOT A GUARANTEE OF CORRECTNESS"
+    print "\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m"
+    print "\033[1mTHE STYLE GUIDE IS FINAL\033[0m"

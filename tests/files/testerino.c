@@ -85,7 +85,7 @@ struct MoreAwkward {
 
 struct StillAwkward {
     int i;
-} *thisIsAnArrayOfStillAwkward; /* not a fan of this at allll */
+} *thisIsAnArrayOfStillAwkward, absolutely; /* not a fan of this at allll */
 
 /* commented global */
 int global = 1;
