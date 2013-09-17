@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <stdarg.h>
+
 #define SIMPATICO_IS_GREAT /* just as you would in an include guard */
 #include "dummy.h"
 
