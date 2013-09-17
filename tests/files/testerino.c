@@ -160,6 +160,11 @@ void test_do(struct Nested n) {
     } while (a, 5, !NULL);
 }
 
+/* make sure we can cope with variable args */
+void test_args(const char *s, ...) {
+    return;
+}
+
 /* and another silly comment */
 void test_switch(int a) {
 #define BOB 1

@@ -1982,6 +1982,12 @@ class Styler(object):
                 if self.current_type() == Type.COMMA:
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
+                if self.current_type() == Type.BINARY_OP: #varags
+                    self.match(Type.BINARY_OP)
+                    self.check_whitespace(0)
+                    self.match(Type.BINARY_OP)
+                    self.check_whitespace(0)
+                    self.match(Type.BINARY_OP)
                 #types can be omitted (defaults to int)
                 if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE,
                         Type.ENUM]: 
