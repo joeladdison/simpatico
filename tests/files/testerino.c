@@ -164,6 +164,9 @@ void test_do(struct Nested n) {
 
 /* make sure we can cope with variable args */
 void test_args(const char *s, ...) {
+    struct Nested *head;
+    for (struct Nested *c = head; c != NULL; c = c->n) {
+    }
     return;
 }
 

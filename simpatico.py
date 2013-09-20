@@ -1328,7 +1328,7 @@ class Styler(object):
             self.check_whitespace(1)
         if self.current_type() in [Type.TYPE, Type.STRUCT, Type.ENUM]:
             self.match_type()
-            self.check_whitespace(1)
+            self.check_whitespace(1, ALLOW_ZERO)
         while self.current_type() != Type.SEMICOLON:
             self.check_expression()
             if self.current_type() == Type.COMMA:
