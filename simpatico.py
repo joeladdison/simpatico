@@ -1269,9 +1269,9 @@ class Styler(object):
                         self.check_whitespace(expected)
             self.check_whitespace(0)
             self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
-        found = self.match_pointers()
         if is_typedef:
             return
+        found = self.match_pointers()
         if self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1, found)
             self.check_naming(self.current_token, Errors.VARIABLE)
@@ -1284,7 +1284,6 @@ class Styler(object):
                 self.check_whitespace(1, found)
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
-
 
     def check_typedef(self):
         d(["check_typedef() entered", self.current_token])
@@ -1453,7 +1452,10 @@ class Styler(object):
         while self.current_type() == Type.IGNORE:
             self.match(Type.IGNORE)
             self.check_whitespace(1)
-        if self.current_type() in [Type.TYPE, Type.IGNORE, Type.ENUM]:
+        if self.current_type() == Type.ENUM:
+            self.check_enum()
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
+        elif self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.check_declaration()
             #allow for prototypes within functions
             if self.current_type() == Type.SEMICOLON:

@@ -62,11 +62,29 @@ struct Nested {
  * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
 
+struct AnonymousEnumContainer {
+    enum {SOME_NAME, ANOTHER_NAME} member;
+    int i;
+    char c;
+};
+
+struct AnonymousStructContainer {
+    struct {
+        int i;
+    } member;
+} testVariable, *pointer;
+
 enum EnumTest {
     BOB, 
     JANE,
     MARY
 };
+
+struct NamedEnumContainer {
+    enum EnumTest member;
+    int i;
+    char c;
+} *variable;
 
 typedef enum TypedEnumTest {
     COW,
