@@ -1294,6 +1294,11 @@ class Styler(object):
             self.check_enum(IS_TYPEDEF)
         else:
             self.match_type()
+        if self.current_type() == Type.SEMICOLON:
+            self.check_whitespace(0)
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
+            d(["check_typedef() type was omitted", self.current_token])
+            return;
         self.check_whitespace(1)
         assert self.current_type() == Type.UNKNOWN #wasn't a type
         d(["check_typedef() adding type:", self.current_token.line])

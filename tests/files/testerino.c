@@ -62,11 +62,11 @@ struct Nested {
  * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
 
-struct AnonymousEnumContainer {
+typedef struct AnonymousEnumContainer {
     enum {SOME_NAME, ANOTHER_NAME} member;
     int i;
     char c;
-};
+}; // not actually specifying the type is dumb, but still compiles
 
 struct AnonymousStructContainer {
     struct {
