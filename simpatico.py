@@ -411,6 +411,7 @@ class Tokeniser(object):
                     self.multiline_comment = megastring.find("*/", n + 2) + 1
                     self.comment_lines[self.line_number] = True
                 elif c == "/" and megastring[n+1] == "/":
+                    self.end_word()
                     self.in_singleline_comment = True
                     self.comment_lines[self.line_number] = True
                 elif length > n + 2 and c + megastring[n+1] in ALL_OPS:
