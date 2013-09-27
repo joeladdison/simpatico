@@ -1340,13 +1340,17 @@ class Styler(object):
                 self.match(Type.COMMA)
                 self.check_whitespace(1)
         self.check_whitespace(0)
-        self.match(Type.SEMICOLON)
+        self.match(Type.SEMICOLON, NO_NEWLINE, NO_NEWLINE)
         d(["checking for conditional", self.current_token])
+        if self.last_real_token.line_number != self.current_token.line_number:
+            self.line_continuation = True
         self.check_whitespace(1)
         if self.current_type() != Type.SEMICOLON:
             self.check_expression() #for (thing; thing
             self.check_whitespace(0)
-        self.match(Type.SEMICOLON)
+        self.match(Type.SEMICOLON, NO_NEWLINE, NO_NEWLINE)
+        if self.last_real_token.line_number != self.current_token.line_number:
+            self.line_continuation = True
         self.check_whitespace(1)
         if self.current_type() != Type.RPAREN:
             d(["checking for post-loop", self.current_token])

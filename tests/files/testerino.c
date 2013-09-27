@@ -154,6 +154,20 @@ int func_c(int (*func_ptr(char *, int)), int i)
     return *func_ptr("test", i);
 }
 
+/* test breaks in for setup */
+void for_continuations(void) {
+    int someReallyLongInt = 1;
+    for (int i = 0; i < someReallyLongInt;
+	    i++) {
+	for (int letsMakeThisLongToo = 0;
+		letsMakeThisLongToo < someReallyLongInt;
+		letsMakeThisLongToo++) {
+	    prinf("well that's slightly awful\n");
+	}
+    }
+
+}
+
 /* to test line continuations */
 void if_continutation(void) {
     size_t a;
