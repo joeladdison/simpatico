@@ -1307,6 +1307,7 @@ class Styler(object):
         self.check_naming(self.current_token, Errors.TYPE)
         self.match(Type.TYPE) #but now it is
         self.check_whitespace(0)
+        self.check_post_identifier()
         #catch those funky but often silly parallel typedefs
         #e.g. typedef oldtype newtype, *newpointertype....
         while self.current_type() == Type.COMMA:
@@ -1320,6 +1321,7 @@ class Styler(object):
             self.update_types([self.current_token.line])
             self.match(Type.TYPE) #but now it is
             self.check_whitespace(0)
+            self.check_post_identifier()
         self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_typedef() exited", self.current_token])
 
