@@ -1234,9 +1234,9 @@ class Styler(object):
         if self.current_type() == Type.STAR:
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
-            while self.current_type() == Type.STAR:
-                self.check_whitespace(0)
-                self.match(Type.STAR)
+            while self.current_type() in [Type.STAR, Type.IGNORE]:
+                self.check_whitespace(1, ALLOW_ZERO)
+                self.match()
             found = True
         d(["match_pointers() exited, found:", found, self.current_token])
         return found
@@ -1718,7 +1718,7 @@ class Styler(object):
         d(["check_exp(): entered", self.current_token])
         #the empty string/expression
         if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA,
-                Type.SEMICOLON]:
+                Type.SEMICOLON, Type.RBRACE]:
             d(["check_exp(): exited, nothing to do", self.current_token])
             return
         #get those unary ops out of the way
