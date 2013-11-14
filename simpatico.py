@@ -411,6 +411,7 @@ class Tokeniser(object):
                     self.multiline_comment = megastring.find("*/", n + 2) + 1
                     self.comment_lines[self.line_number] = True
                 elif c == "/" and megastring[n+1] == "/":
+                    self.end_word()
                     self.in_singleline_comment = True
                     self.comment_lines[self.line_number] = True
                 elif length > n + 2 and c + megastring[n+1] in ALL_OPS:
@@ -783,7 +784,7 @@ class Styler(object):
             assert not STOP_ON_DUPLICATED_WHITESPACE_CHECK
             if token.whitespace_checked > 10:
                 #this looks like an infinite loop
-                print "infinite loop detected, current token:", token
+                print "infinite loop detected, current token:", token, "file:", self.filename
                 assert False #kill this infinite loop
             return
         token.whitespace_checked += 1
@@ -1269,9 +1270,9 @@ class Styler(object):
                         self.check_whitespace(expected)
             self.check_whitespace(0)
             self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
-        found = self.match_pointers()
         if is_typedef:
             return
+        found = self.match_pointers()
         if self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1, found)
             self.check_naming(self.current_token, Errors.VARIABLE)
@@ -1285,7 +1286,6 @@ class Styler(object):
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
 
-
     def check_typedef(self):
         d(["check_typedef() entered", self.current_token])
         self.check_whitespace(1)
@@ -1295,6 +1295,11 @@ class Styler(object):
             self.check_enum(IS_TYPEDEF)
         else:
             self.match_type()
+        if self.current_type() == Type.SEMICOLON:
+            self.check_whitespace(0)
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
+            d(["check_typedef() type was omitted", self.current_token])
+            return;
         self.check_whitespace(1)
         assert self.current_type() == Type.UNKNOWN #wasn't a type
         d(["check_typedef() adding type:", self.current_token.line])
@@ -1328,7 +1333,7 @@ class Styler(object):
             self.check_whitespace(1)
         if self.current_type() in [Type.TYPE, Type.STRUCT, Type.ENUM]:
             self.match_type()
-            self.check_whitespace(1)
+            self.check_whitespace(1, ALLOW_ZERO)
         while self.current_type() != Type.SEMICOLON:
             self.check_expression()
             if self.current_type() == Type.COMMA:
@@ -1336,13 +1341,17 @@ class Styler(object):
                 self.match(Type.COMMA)
                 self.check_whitespace(1)
         self.check_whitespace(0)
-        self.match(Type.SEMICOLON)
+        self.match(Type.SEMICOLON, NO_NEWLINE, NO_NEWLINE)
         d(["checking for conditional", self.current_token])
+        if self.last_real_token.line_number != self.current_token.line_number:
+            self.line_continuation = True
         self.check_whitespace(1)
         if self.current_type() != Type.SEMICOLON:
             self.check_expression() #for (thing; thing
             self.check_whitespace(0)
-        self.match(Type.SEMICOLON)
+        self.match(Type.SEMICOLON, NO_NEWLINE, NO_NEWLINE)
+        if self.last_real_token.line_number != self.current_token.line_number:
+            self.line_continuation = True
         self.check_whitespace(1)
         if self.current_type() != Type.RPAREN:
             d(["checking for post-loop", self.current_token])
@@ -1453,7 +1462,10 @@ class Styler(object):
         while self.current_type() == Type.IGNORE:
             self.match(Type.IGNORE)
             self.check_whitespace(1)
-        if self.current_type() in [Type.TYPE, Type.IGNORE, Type.ENUM]:
+        if self.current_type() == Type.ENUM:
+            self.check_enum()
+            self.match(Type.SEMICOLON, MUST_NEWLINE)
+        elif self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.check_declaration()
             #allow for prototypes within functions
             if self.current_type() == Type.SEMICOLON:
@@ -1599,7 +1611,7 @@ class Styler(object):
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
                 print "HEY YOU,", self.filename, \
-                        "can't be compiled on it's own\n\tFIX IT"
+                        "can't be compiled on it's own\n\tFIX IT", self.current_token
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -1740,7 +1752,7 @@ class Styler(object):
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
                 print "HEY YOU, ", self.filename, "won't compile on it's own"
-                print "\tFIX IT"
+                print "\tFIX IT", self.current_token
                 self.update_types([self.current_token.line])
             #typecast
             if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
@@ -1797,6 +1809,12 @@ class Styler(object):
             self.match(Type.ASSIGNMENT)
             self.check_whitespace(1)
             self.check_expression()
+        elif self.current_type() == Type.COMMA:
+            while self.current_type() == Type.COMMA:
+                self.check_whitespace(0)
+                self.match(Type.COMMA)
+                self.check_whitespace(1)
+                self.check_expression()
         #and done
         d(["check_exp(): exited", self.current_token])
 
