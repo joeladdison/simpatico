@@ -62,11 +62,29 @@ struct Nested {
  * especially if you think you'll be compiling with not GCC (hint: bad things)
  */
 
+typedef struct AnonymousEnumContainer {
+    enum {SOME_NAME, ANOTHER_NAME} member;
+    int i;
+    char c;
+}; // not actually specifying the type is dumb, but still compiles
+
+struct AnonymousStructContainer {
+    struct {
+        int i;
+    } member;
+} testVariable, *pointer;
+
 enum EnumTest {
     BOB, 
     JANE,
     MARY
 };
+
+struct NamedEnumContainer {
+    enum EnumTest member;
+    int i;
+    char c;
+} *variable;
 
 typedef enum TypedEnumTest {
     COW,
@@ -136,6 +154,20 @@ int func_c(int (*func_ptr(char *, int)), int i)
     return *func_ptr("test", i);
 }
 
+/* test breaks in for setup */
+void for_continuations(void) {
+    int someReallyLongInt = 1;
+    for (int i = 0; i < someReallyLongInt;
+	    i++) {
+	for (int letsMakeThisLongToo = 0;
+		letsMakeThisLongToo < someReallyLongInt;
+		letsMakeThisLongToo++) {
+	    prinf("well that's slightly awful\n");
+	}
+    }
+
+}
+
 /* to test line continuations */
 void if_continutation(void) {
     size_t a;
@@ -164,6 +196,9 @@ void test_do(struct Nested n) {
 
 /* make sure we can cope with variable args */
 void test_args(const char *s, ...) {
+    struct Nested *head;
+    for (struct Nested *c = head; c != NULL; c = c->n) {
+    }
     return;
 }
 
