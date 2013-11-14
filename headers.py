@@ -608,6 +608,7 @@ standard_header_types = {
         "in_addr_t", "in_port_t", "clock_t", "clockid_t", "size_t", "ssize_t",
         "time_t", "timer_t", "off_t", "__fd_mask", "fd_set", "timeval",
         "sched_param"],
-"netinet/tcp.h" : ["tcp_seq"]
+"netinet/tcp.h" : ["tcp_seq"],
+"termios.h" : ["tcflag_t", "cc_t", "speed_t"]
 }
 
