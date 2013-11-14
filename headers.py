@@ -576,6 +576,8 @@ standard_header_types = {
         "__intptr_t", "__socklen_t", "_IO_FILE", "FILE", "__FILE",
         "__mbstate_t", "_G_fpos_t", "_G_fpos64_t", "__gnuc_va_list",
         "_IO_jump_t", "_IO_FILE", "_IO_lock_t", "__codecvt_result", "_IO_FILE",
-        "_IO_FILE_plus", "va_list", "off_t", "ssize_t", "fpos_t"]
+        "_IO_FILE_plus", "va_list", "off_t", "ssize_t", "fpos_t"],
+"stdarg.h" : ["va_list", "__gnuc_va_list"],
+"sys/ioctl.h" : []
 }
 
