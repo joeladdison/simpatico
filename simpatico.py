@@ -76,7 +76,7 @@ class Terminals(object):
     KW_IMAGINARY = "_Imaginary"
 
 BINARY_OPERATORS = ["/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
-UNARY_OPERATORS = ["--", "++", "!", "~"]
+UNARY_OPERATORS = ["--", "++", "!", "~", '-', '+']
 LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "==", "!="]
 ASSIGNMENTS = ["=", "%=", "+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=",
         "^="]
@@ -103,6 +103,16 @@ class Type(object):
         #47
         GOTO, PLUS, TILDE
     ) = range(50)
+
+TYPE_STRINGS = ["ERROR_TYPE", "DEFINE", "INCLUDE", "COMMENT", "NEWLINE",
+        "COMMA", "LBRACE", "RBRACE", "LPAREN", "RPAREN", "MINUS", "BINARY_OP",
+        "LOGICAL_OP", "STAR", "AMPERSAND", "TYPE", "CREMENT", "IGNORE",
+        "EXTERN", "BREAK", "FOR", "SWITCH", "CASE", "STRUCT", "CONTINUE",
+        "TYPEDEF", "RETURN", "UNKNOWN", "CONSTANT", "WHILE", "DO",
+        "SEMICOLON", "COLON", "TERNARY", "ASSIGNMENT", "IF", "ELSE",
+        "LSQUARE", "RSQUARE", "LINE_CONT", "DEFAULT", "NOT", "SIZEOF",
+        "PRECOMPILER", "ATTRIBUTE", "HASH", "ENUM", "GOTO", "PLUS", "TILDE"]
+
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -251,6 +261,9 @@ class Word(object):
         else:
             #d(["finalise() could not match type for", self])
             self._type = Type.UNKNOWN #variables and externally defined types
+
+    def getBoldString(self):
+        return "\033[1m%s\033[0m"%("".join(self.line))
 
     def __str__(self):
         return self.__repr__()
@@ -627,7 +640,7 @@ class Styler(object):
         except (RuntimeError, AssertionError) as e:
             if self.quiet:
                 raise e
-            raise RuntimeError(e.message + "\n\033[1mStyling %s failed on line %d\033[0m"\
+            raise RuntimeError(e.message + "\n\033[1mStyling %s failed on line %d\033[0m\n"\
                     %(filename, self.current_token.line_number))
             return
         #before we're done with the file, check the filename style
@@ -702,8 +715,9 @@ class Styler(object):
         d(["matching", old])
         if old.inner_tokens:
             if req_type != Type.ANY and old.get_type() != req_type:
-                print "match fail:", old.get_type(), req_type, self.filename
-                assert old.get_type() == req_type
+                raise RuntimeError(("Parse failure: {0} expected to be of"+\
+                    " type {2} but was {1}").format(str(old),
+                    TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type]))
             if old.inner_position < len(old.inner_tokens) - 1:
                 old.inner_position += 1
                 old = old.inner_tokens[old.inner_position - 1]
@@ -718,9 +732,9 @@ class Styler(object):
 
         # ensure we're matching what's expected
         if req_type != Type.ANY and old.get_type() != req_type:
-            print "match fail:", self.current_token, old.get_type(), req_type,\
-                    self.filename
-            assert old.get_type() == req_type
+            raise RuntimeError(("Parse failure: {0} expected to be of"+\
+                " type {2} but was {1}").format(str(old),
+                TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type]))
         # check pre-token newlines if {}
         elif old.get_type() in [Type.LBRACE, Type.RBRACE]:
             # previous was a newline but shouldn't have been
@@ -793,8 +807,7 @@ class Styler(object):
             assert not STOP_ON_DUPLICATED_WHITESPACE_CHECK
             if token.whitespace_checked > 10:
                 #this looks like an infinite loop
-                print "infinite loop detected, current token:", token, "file:", self.filename
-                assert False #kill this infinite loop
+                raise RuntimeError("infinite loop detected on token %s"%(str(token)))
             return
         token.whitespace_checked += 1
         if one_or_zero and not self.line_continuation:
@@ -1040,9 +1053,8 @@ class Styler(object):
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             #ruh roh
             else:
-                print "found an awkward type in global space:", \
-                        self.current_token, self.filename
-                assert False #crash this thing so we can trace it
+                raise RuntimeError("Found an awkward type in global space: " + \
+                        self.current_token.getBoldString())
 
     def check_precompile(self):
         d(["check_precompile() entered", self.current_token])
@@ -1565,7 +1577,8 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() in [Type.STAR, Type.CREMENT,
-                Type.CONSTANT, Type.SIZEOF, Type.LPAREN]:
+                Type.CONSTANT, Type.SIZEOF, Type.LPAREN] \
+                or self.current_token.line in ALL_OPS:
             self.check_expression()
             self.check_whitespace(0)
             while self.current_type() == Type.COMMA:
@@ -1631,9 +1644,8 @@ class Styler(object):
                 #they did
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
-                print self.filename, \
-                        "is missing dependencies\n", \
-                        "\tfix that first", self.current_token
+                print self.filename, "possibly missing dependencies, assuming ",
+                print "'%s' is a type"%(self.current_token.getBoldString())
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -1662,6 +1674,8 @@ class Styler(object):
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.GOTO:
             self.match(Type.GOTO)
+            raise RuntimeError("WARNING: you have used a goto, this is banned"+\
+                    ", exiting")
             self.check_whitespace(1)
             self.match(Type.UNKNOWN)
             self.check_whitespace(0)
@@ -1692,8 +1706,7 @@ class Styler(object):
             self.check_post_identifier()
         else:
             print "check_sizeof(): unexpected token:", self.current_token
-            print self.filename
-            assert False #crash this thing so we can trace it
+            raise RuntimeError("Found an unexpected token")
         
         d(["check_sizeof(): exited", self.current_token])
 
@@ -1763,7 +1776,8 @@ class Styler(object):
                 Type.SIZEOF, Type.LPAREN, Type.TYPE]:
             d(["check_exp(): unexpected token:", self.current_token,
                     self.current_type(), self.filename])
-            assert False #crash this thing so we can trace it
+            raise RuntimeError("Token of unknown type %s in expression"%(\
+                    TYPE_STRINGS[self.current_type()]))
 
         #grab a value of some form
         #Type.LPAREN (subexp, typecast)
@@ -1775,8 +1789,8 @@ class Styler(object):
                     and self.peek().get_type() == Type.STAR \
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
-                print "HEY YOU, ", self.filename, "is missing dependencies"
-                print "\tFIX IT", self.current_token
+                print self.filename, "possibly missing dependencies, assuming ",
+                print "'%s' is a type"%(self.current_token.getBoldString())
                 self.update_types([self.current_token.line])
             #typecast
             if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
@@ -1994,9 +2008,8 @@ class Styler(object):
                 #they're doing something like "gcc a.c b.c c.c" and not all
                 #include the typedef, but because they're merged during
                 #compilation, gcc doesn't complain
-                print self.filename, \
-                        "is missing dependencies\n", \
-                        "\tfix that first", self.current_token
+                print self.filename, "possibly missing dependencies, assuming ",
+                print "'%s' is a type"%(self.current_token.getBoldString())
                 self.update_types([self.current_token.line])
                 self.match_type()
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -2144,7 +2157,7 @@ if __name__ == '__main__':
                 style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
             except RuntimeError as e:
                 print e.message
-                break
+                sys.exit(1)
             print style.errors
     print "\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m"
     print "\033[1mTHE STYLE GUIDE IS FINAL\033[0m"

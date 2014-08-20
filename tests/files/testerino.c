@@ -74,7 +74,7 @@ struct AnonymousStructContainer {
     } member;
 } testVariable, *pointer;
 
-enum EnumTest {
+enum EnumTest { // this is legit
     BOB, 
     JANE,
     MARY
@@ -221,12 +221,15 @@ void test_switch(int a) {
 #endif
 }
 
+
 /* random test bits, would be in main but the length of main would be > 50*/
 void test_misc(int a, int b, int *e) {
     a = 0 ? a : b;
     ;
 #ifdef INIT_NESTED
     3;
+    printf("%d", -0);
+    printf("%d", ~b);
 #endif
     for (int x = 0; x < 1; x++) {
         fprintf(stderr, "testerino\"\n"); //prints: testerino"
@@ -272,7 +275,7 @@ int main(int argc, char **argv) {
     (&s)->contents = 'a';
     s.contents = 'b';
     struct Nested t = {.s = s, .n = NULL};
-#define INIT_NESTED(x) {.s = s, .n = x}
+#define INIT_NESTED(x) {.s = s, .n = (x)}
     struct Nested u = INIT_NESTED(NULL);
 #undef INIT_NESTED
     Struct *p = &s;
@@ -305,5 +308,6 @@ int main(int argc, char **argv) {
         p->contents = NULL;
         return;
     }
+    int goto = 1;
     return f;
 }
