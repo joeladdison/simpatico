@@ -76,7 +76,7 @@ class Terminals(object):
     KW_IMAGINARY = "_Imaginary"
 
 BINARY_OPERATORS = ["/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
-UNARY_OPERATORS = ["--", "++", "!"]
+UNARY_OPERATORS = ["--", "++", "!", "~"]
 LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "==", "!="]
 ASSIGNMENTS = ["=", "%=", "+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=",
         "^="]
@@ -101,8 +101,8 @@ class Type(object):
         #39
         LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM,
         #47
-        GOTO, PLUS
-    ) = range(49)
+        GOTO, PLUS, TILDE
+    ) = range(50)
 
 class Word(object):
     """ Keeps track of contextual details about the word """
@@ -194,6 +194,8 @@ class Word(object):
             self._type = Type.MINUS
         elif line == "+":
             self._type = Type.PLUS
+        elif line == "~":
+            self._type = Type.TILDE
         elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
         elif line == "*":
@@ -1742,7 +1744,8 @@ class Styler(object):
             return
         #get those unary ops out of the way
         if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND,
-                Type.CREMENT, Type.AMPERSAND, Type.MINUS, Type.PLUS]:
+                Type.CREMENT, Type.AMPERSAND, Type.MINUS, Type.PLUS,
+                Type.TILDE]:
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
