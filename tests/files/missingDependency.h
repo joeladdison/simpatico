@@ -1,0 +1,2 @@
+
+typedef MissingType NewType;

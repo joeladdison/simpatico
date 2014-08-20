@@ -3,7 +3,7 @@
 """ This is a complete rewrite of the old simpatico.
 Hopefully it's good. """
 
-import sys
+import sys, traceback
 
 import headers
 
@@ -465,7 +465,7 @@ class Errors(object):
             elif name_type == Errors.VARIABLE:
                 msg = " misnamed, variables should be namedLikeThis"
             else:
-                raise #simon was terrible, tell him about this one
+                raise RuntimeError("Unknown naming violation type")
             name = token.get_string()
             line_no = token.line_number
         self.naming_d[line_no] = "[NAMING] '" + name + "'" + msg
@@ -582,6 +582,7 @@ class Styler(object):
         self.found_types = []
         self.found_defines = {}
         self.included_files = []
+        self.failed = False
         self.filename = filename
         self.quiet = quiet
         self.path = ""
@@ -621,6 +622,12 @@ class Styler(object):
         except IndexError:
             #that'd be us finished
             pass
+        except (RuntimeError, AssertionError) as e:
+            if self.quiet:
+                raise e
+            raise RuntimeError(e.message + "\n\033[1mStyling %s failed on line %d\033[0m"\
+                    %(filename, self.current_token.line_number))
+            return
         #before we're done with the file, check the filename style
         if "/" in filename:
             filename = filename[filename.rfind("/") + 1:]
@@ -867,8 +874,11 @@ class Styler(object):
     def match_type(self):
         d(["match_type(): entered", self.current_token])
         if self.current_type() == Type.UNKNOWN:
-            print "iunno about this type you're giving me, it's unknown"
-            assert False
+            identifier = self.current_token.get_string()
+            line = self.current_token.line_number
+            filename = self.filename
+            raise RuntimeError("%s:%d:'%s'"%(self.filename, line, identifier)+\
+                    "is an unknown type, are you missing a dependency?")
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
                 Type.LPAREN, Type.ENUM]
         if self.current_type() in [Type.TYPE, Type.IGNORE]:
@@ -1053,8 +1063,10 @@ class Styler(object):
                 self.current_token._type = Type.CONSTANT
             include_std = False
             include_name = []
+            include_token = None
             #include "stuff.h"
             if self.current_type() == Type.CONSTANT:
+                include_token = self.current_token
                 #already violated for whitespace if is_terrible
                 if not is_terrible:
                     self.check_whitespace(1)
@@ -1093,7 +1105,12 @@ class Styler(object):
                 if name == self.filename:
                     d(["check_precompile() exited", self.current_token])
                     return
-                fun_with_recursion = Styler(name, True)
+                try:
+                    fun_with_recursion = Styler(name, quiet=True)
+                except (RuntimeError, AssertionError) as e:
+                    self.current_token = include_token
+                    raise RuntimeError("#included file %s caused an error:\n\t%s"%(\
+                            include_name, e.message))
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -1612,8 +1629,9 @@ class Styler(object):
                 #they did
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
-                print "HEY YOU,", self.filename, \
-                        "can't be compiled on it's own\n\tFIX IT", self.current_token
+                print self.filename, \
+                        "is missing dependencies\n", \
+                        "\tfix that first", self.current_token
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -1672,6 +1690,7 @@ class Styler(object):
             self.check_post_identifier()
         else:
             print "check_sizeof(): unexpected token:", self.current_token
+            print self.filename
             assert False #crash this thing so we can trace it
         
         d(["check_sizeof(): exited", self.current_token])
@@ -1740,7 +1759,7 @@ class Styler(object):
         elif self.current_type() not in [Type.UNKNOWN, Type.CONSTANT,
                 Type.SIZEOF, Type.LPAREN, Type.TYPE]:
             d(["check_exp(): unexpected token:", self.current_token,
-                    self.current_type()])
+                    self.current_type(), self.filename])
             assert False #crash this thing so we can trace it
 
         #grab a value of some form
@@ -1753,7 +1772,7 @@ class Styler(object):
                     and self.peek().get_type() == Type.STAR \
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
-                print "HEY YOU, ", self.filename, "won't compile on it's own"
+                print "HEY YOU, ", self.filename, "is missing dependencies"
                 print "\tFIX IT", self.current_token
                 self.update_types([self.current_token.line])
             #typecast
@@ -1972,8 +1991,9 @@ class Styler(object):
                 #they're doing something like "gcc a.c b.c c.c" and not all
                 #include the typedef, but because they're merged during
                 #compilation, gcc doesn't complain
-                print "HEY YOU,", self.filename, "wouldn't compile on it's own"
-                print "\tFIX IT"
+                print self.filename, \
+                        "is missing dependencies\n", \
+                        "\tfix that first", self.current_token
                 self.update_types([self.current_token.line])
                 self.match_type()
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -2116,7 +2136,12 @@ if __name__ == '__main__':
             continue
         if sys.argv[f].strip():
             print 'Parsing %s...' % sys.argv[f]
-            style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
+            style = None
+            try:
+                style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
+            except RuntimeError as e:
+                print e.message
+                break
             print style.errors
     print "\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m"
     print "\033[1mTHE STYLE GUIDE IS FINAL\033[0m"
