@@ -29,7 +29,7 @@
 extern int errno;
 
 /* these two vars are for testing type-qualifiers */
-static long int stat = 0532L;
+static long int staticTest = 0532L;
 volatile unsigned char vuc; /* not a good name since it's entirely the type */
 
 /* this is testing the #include "dummy" correctly checks type */
@@ -113,6 +113,7 @@ char globalChar = '\0'; /*also commented*/
 
 /* commented function */
 func_a(char *str, int i) {
+    bob.i = i;
     return linux * str[i]; //what's linux, you ask? a standard #define
 }
 
@@ -162,7 +163,7 @@ void for_continuations(void) {
 	for (int letsMakeThisLongToo = 0;
 		letsMakeThisLongToo < someReallyLongInt;
 		letsMakeThisLongToo++) {
-	    prinf("well that's slightly awful\n");
+	    printf("well that's slightly awful\n");
 	}
     }
 
@@ -171,6 +172,7 @@ void for_continuations(void) {
 /* to test line continuations */
 void if_continutation(void) {
     size_t a;
+    a = 0;
     a++;
     if (1 && 2 && \
             3 && 4) {
@@ -262,6 +264,7 @@ void test_misc(int a, int b, int *e) {
 /* heres a comment*/
 int main(int argc, char **argv) {
     int a = 1;
+    long l = staticTest;
     int b = -a, *c = &b;
     int *d = malloc(sizeof(int) * 6);
     int **e = malloc(sizeof(int *) * 6);
@@ -308,6 +311,5 @@ int main(int argc, char **argv) {
         p->contents = NULL;
         return;
     }
-    int goto = 1;
     return f;
 }

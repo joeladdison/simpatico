@@ -76,6 +76,7 @@ class Terminals(object):
     KW_IMAGINARY = "_Imaginary"
 
 BINARY_OPERATORS = ["/", "%", ">>", "<<", "|", "^", "->", ".", "?", ":"]
+STRUCT_OPERATORS = [".", "->"]
 UNARY_OPERATORS = ["--", "++", "!", "~", '-', '+']
 LOGICAL_OPERATORS = ["&&", "||", "<", ">", "<=", ">=", "==", "!="]
 ASSIGNMENTS = ["=", "%=", "+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=",
@@ -101,8 +102,8 @@ class Type(object):
         #39
         LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM,
         #47
-        GOTO, PLUS, TILDE
-    ) = range(50)
+        GOTO, PLUS, TILDE, STRUCT_OP
+    ) = range(51)
 
 TYPE_STRINGS = ["ERROR_TYPE", "DEFINE", "INCLUDE", "COMMENT", "NEWLINE",
         "COMMA", "LBRACE", "RBRACE", "LPAREN", "RPAREN", "MINUS", "BINARY_OP",
@@ -111,7 +112,8 @@ TYPE_STRINGS = ["ERROR_TYPE", "DEFINE", "INCLUDE", "COMMENT", "NEWLINE",
         "TYPEDEF", "RETURN", "UNKNOWN", "CONSTANT", "WHILE", "DO",
         "SEMICOLON", "COLON", "TERNARY", "ASSIGNMENT", "IF", "ELSE",
         "LSQUARE", "RSQUARE", "LINE_CONT", "DEFAULT", "NOT", "SIZEOF",
-        "PRECOMPILER", "ATTRIBUTE", "HASH", "ENUM", "GOTO", "PLUS", "TILDE"]
+        "PRECOMPILER", "ATTRIBUTE", "HASH", "ENUM", "GOTO", "PLUS", "TILDE",
+        "STRUCT_OP"]
 
 
 class Word(object):
@@ -206,6 +208,8 @@ class Word(object):
             self._type = Type.PLUS
         elif line == "~":
             self._type = Type.TILDE
+        elif line in STRUCT_OPERATORS:
+            self._type = Type.STRUCT_OP
         elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
         elif line == "*":
@@ -1459,13 +1463,13 @@ class Styler(object):
             self.check_whitespace(0)
         self.match() #the const
         #check for ellipsis (...)
-        if self.current_type() == Type.BINARY_OP:
+        if self.current_type() == Type.STRUCT_OP:
             self.check_whitespace(1, ALLOW_ZERO)
-            self.match(Type.BINARY_OP)
+            self.match(Type.STRUCT_OP)
             self.check_whitespace(0)
-            self.match(Type.BINARY_OP)
+            self.match(Type.STRUCT_OP)
             self.check_whitespace(0)
-            self.match(Type.BINARY_OP)
+            self.match(Type.STRUCT_OP)
             self.check_whitespace(1, ALLOW_ZERO)
             if self.current_type() in [Type.PLUS, Type.MINUS]:
                 self.match()
@@ -1540,9 +1544,9 @@ class Styler(object):
                         self.match(Type.LBRACE)
                         self.check_whitespace(0)
                         #if it's {.member = } style
-                        if self.current_type() == Type.BINARY_OP:
-                            while self.current_type() == Type.BINARY_OP: # .
-                                self.match(Type.BINARY_OP)
+                        if self.current_type() == Type.STRUCT_OP:
+                            while self.current_type() == Type.STRUCT_OP: # .
+                                self.match(Type.STRUCT_OP)
                                 d(["next member", self.current_token])
                                 self.check_whitespace(0)
                                 self.match(Type.UNKNOWN)
@@ -1644,8 +1648,9 @@ class Styler(object):
                 #they did
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
-                print self.filename, "possibly missing dependencies, assuming ",
-                print "'%s' is a type"%(self.current_token.getBoldString())
+                print self.filename, "possibly missing dependencies " + \
+                        "assuming '%s' is a type"%(\
+                        self.current_token.getBoldString())
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -1758,11 +1763,15 @@ class Styler(object):
         #get those unary ops out of the way
         if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND,
                 Type.CREMENT, Type.AMPERSAND, Type.MINUS, Type.PLUS,
-                Type.TILDE]:
+                Type.TILDE, Type.STRUCT_OP]: #struct is for struct inits
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
             self.check_expression()
+            d(["check_exp(): exited, end of unary", self.current_token])
+            return
+        elif self.current_type() == Type.LSQUARE: #array init
+            d(["check_exp(): exited, end of array init", self.current_token])
             return
 
         #array initialisers are special
@@ -1834,17 +1843,18 @@ class Styler(object):
             self.match(Type.SIZEOF)
             self.check_sizeof()
             
-        #now test for a following operator
-        if self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
-                Type.TERNARY, Type.COLON, Type.AMPERSAND, Type.PLUS]:
-            self.check_whitespace(1, ALLOW_ZERO)
+        #struct ops are special
+        if self.current_type() == Type.STRUCT_OP:
+            self.check_whitespace(0)
             self.match()
-            self.check_whitespace(1, ALLOW_ZERO)
+            self.check_whitespace(0)
             self.check_expression()
-        #or possibly assignments with their special case of whitespace
-        elif self.current_type() == Type.ASSIGNMENT:
+        #other binary operators
+        elif self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
+                Type.TERNARY, Type.COLON, Type.AMPERSAND, Type.PLUS,
+                Type.ASSIGNMENT]:
             self.check_whitespace(1)
-            self.match(Type.ASSIGNMENT)
+            self.match()
             self.check_whitespace(1)
             self.check_expression()
         elif self.current_type() == Type.COMMA:
@@ -1946,7 +1956,7 @@ class Styler(object):
             return
         self.match(Type.LBRACE, MAY_NEWLINE)
         self.check_whitespace(0)
-        #partial init
+        #partial array init
         if self.current_type() == Type.LSQUARE:
             self.match(Type.LSQUARE)
             self.check_whitespace(0)
@@ -1957,9 +1967,9 @@ class Styler(object):
             self.match(Type.ASSIGNMENT)
             self.check_whitespace(1)
             self.check_expression()
-            while self.current_type() == Type.COMMA:
-                self.check_whitespace(0)
-                self.match(Type.COMMA)
+            d(["check_array_assignment() after first", self.current_token])
+            #comma dealt with in expressions
+            while self.current_type() == Type.LSQUARE:
                 self.check_whitespace(1)
                 self.match(Type.LSQUARE)
                 self.check_whitespace(0)
@@ -1970,16 +1980,16 @@ class Styler(object):
                 self.match(Type.ASSIGNMENT)
                 self.check_whitespace(1)
                 self.check_expression()
-        #complete init
+        #complete init or struct init
         else:
-            while self.current_type() != Type.RBRACE:
+            while self.current_type() != Type.RBRACE: #struct
                 #.membername = stuff
-                if self.current_type() == Type.BINARY_OP:
-                    self.match(Type.BINARY_OP)
+                if self.current_type() == Type.STRUCT_OP:
+                    self.match(Type.STRUCT_OP)
                     self.check_whitespace(0)
                     self.check_expression() #clear the following expression
                 # {{0}, {0}, {0}
-                elif self.current_type() == Type.LBRACE:
+                elif self.current_type() == Type.LBRACE: #array
                     self.check_array_assignment()
                 #possibly just membername = stuff
                 else:
@@ -2038,12 +2048,12 @@ class Styler(object):
                 if self.current_type() == Type.COMMA:
                     self.match(Type.COMMA)
                     self.check_whitespace(1)
-                if self.current_type() == Type.BINARY_OP: #varags
-                    self.match(Type.BINARY_OP)
+                if self.current_type() == Type.STRUCT_OP: #varags
+                    self.match(Type.STRUCT_OP)
                     self.check_whitespace(0)
-                    self.match(Type.BINARY_OP)
+                    self.match(Type.STRUCT_OP)
                     self.check_whitespace(0)
-                    self.match(Type.BINARY_OP)
+                    self.match(Type.STRUCT_OP)
                 #types can be omitted (defaults to int)
                 if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE,
                         Type.ENUM]: 
