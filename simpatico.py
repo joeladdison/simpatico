@@ -1753,7 +1753,7 @@ class Styler(object):
             self.check_post_identifier()
         d(["check_post_identifier(): exited", self.current_token])
 
-    def check_expression(self):
+    def check_expression(self, return_on_comma = False):
         d(["check_exp(): entered", self.current_token])
         #the empty string/expression
         if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA,
@@ -1858,7 +1858,7 @@ class Styler(object):
             self.check_whitespace(1)
             self.check_expression()
         elif self.current_type() == Type.COMMA:
-            while self.current_type() == Type.COMMA:
+            while self.current_type() == Type.COMMA and not return_on_comma:
                 self.check_whitespace(0)
                 self.match(Type.COMMA)
                 self.check_whitespace(1)
@@ -2128,7 +2128,7 @@ class Styler(object):
             if array:
                 self.check_array_assignment()
             else:
-                self.check_expression()
+                self.check_expression(return_on_comma = True)
         
         #is it a multi-var declaration?
         while self.current_type() == Type.COMMA:
