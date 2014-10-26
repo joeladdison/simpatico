@@ -1277,6 +1277,7 @@ class Styler(object):
         return found
 
     def check_enum(self, is_typedef = False):
+        d(["check_enum() entered", self.current_token])
         self.match(Type.ENUM)
         self.check_whitespace(1)
         if self.current_type() == Type.UNKNOWN:
@@ -1293,7 +1294,7 @@ class Styler(object):
             self.check_whitespace(expected)
             while self.current_type() != Type.RBRACE:
                 self.check_naming(self.current_token, Errors.DEFINE)
-                self.check_expression()
+                self.check_expression(return_on_comma=True)
                 if self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
                     line = self.current_token.line_number
@@ -1306,6 +1307,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
         if is_typedef:
+            d(["check_enum() exited", self.current_token])
             return
         found = self.match_pointers()
         if self.current_type() == Type.UNKNOWN:
@@ -1320,6 +1322,7 @@ class Styler(object):
                 self.check_whitespace(1, found)
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
+        d(["check_enum() exited", self.current_token])
 
     def check_typedef(self):
         d(["check_typedef() entered", self.current_token])
@@ -1704,6 +1707,14 @@ class Styler(object):
                 self.check_expression()
             self.check_whitespace(0)
             self.match(Type.RPAREN)
+            d(["check_sizeof(): exited", self.current_token])
+            return
+        if self.current_type() == Type.STAR:
+            self.check_whitespace(1)
+            self.match_pointers()
+            self.check_whitespace(0)
+            self.match(Type.UNKNOWN)
+            self.check_post_identifier()
         #sizeof var
         elif self.current_type() == Type.UNKNOWN:
             self.check_whitespace(1)
@@ -1899,6 +1910,7 @@ class Styler(object):
 # since we can't tell here what they're doing
         self.check_whitespace(1)
         first = self.current_token
+        first.inner_tokens = []
         #before we match, we just want to know what's coming next, since match
         #moves to the next meaningful token (but in this case we need to know
         #if it's a newline)

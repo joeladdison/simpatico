@@ -302,9 +302,9 @@ int main(int argc, char **argv) {
         int arry[7] = {[2] = 3, [4] = 2}; //init only some members
     } else {
     }
-    if(p->contents%2 == 0) {
+    if(p->contents % 2 == 0) {
         a = 'O';
-    } else if(p->contents%2 != 0) {
+    } else if(p->contents % 2 != 0) {
         a = 'X';
     }
     if(p->contents == 1) {
