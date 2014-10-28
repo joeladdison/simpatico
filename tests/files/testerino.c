@@ -116,6 +116,7 @@ char globalChar = '\0'; /*also commented*/
 
 /* commented function */
 func_a(char *str, int i) {
+    enum EnumTest e = BOB;
     bob.i = i;
     return linux * str[i]; //what's linux, you ask? a standard #define
 }

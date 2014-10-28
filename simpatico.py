@@ -1513,7 +1513,13 @@ class Styler(object):
             self.match(Type.IGNORE)
             self.check_whitespace(1)
         if self.current_type() == Type.ENUM:
-            self.check_enum()
+            ahead = self.lookahead([Type.LPAREN, Type.SEMICOLON,
+                    Type.LBRACE, Type.ASSIGNMENT])
+            if ahead in [Type.LPAREN, Type.ASSIGNMENT]:
+                #return type
+                self.check_declaration()
+            else:
+                self.check_enum()
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() in [Type.TYPE, Type.IGNORE]:
             self.check_declaration()
