@@ -900,11 +900,19 @@ class Styler(object):
                     "is an unknown type, are you missing a dependency?")
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
                 Type.LPAREN, Type.ENUM]
-        if self.current_type() in [Type.TYPE, Type.IGNORE]:
+        if self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:
+            old = self.current_type()
             self.match()
-            while self.current_type() in [Type.TYPE, Type.IGNORE]:           
+            if old == Type.STRUCT:
                 self.check_whitespace(1)
+                self.match() #struct identifier
+            while self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:           
+                self.check_whitespace(1)
+                old = self.current_type()
                 self.match()
+                if old == Type.STRUCT:
+                    self.check_whitespace(1)
+                    self.match() #struct identifier
         elif self.current_type() in [Type.STRUCT, Type.ENUM]:
             #match the keyword first
             self.match()

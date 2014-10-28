@@ -261,6 +261,9 @@ void test_misc(int a, int b, int *e) {
     }
 }
 
+//a funkyfunction pointer
+int (*function)(int, const struct sockaddr*, socklen_t); 
+
 /* heres a comment*/
 int main(int argc, char **argv) {
     int a = 1;
