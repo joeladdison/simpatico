@@ -683,7 +683,8 @@ class Styler(object):
     def lookahead(self, expected):
         """ returns the first of the token types from expected that is found
         """
-        d(["lookahead() entered: expected =", expected])
+        d(["lookahead() entered: expected =",
+                [TYPE_STRINGS[i] for i in expected]])
         i = self.position
         while True:
             if self.tokens[i].inner_tokens:
@@ -1053,8 +1054,9 @@ class Styler(object):
             #enums
             elif self.current_type() == Type.ENUM:
                 #could be a declaration or a return type
-                if self.lookahead([Type.LPAREN, Type.SEMICOLON, Type.LBRACE])\
-                        == Type.LPAREN:
+                ahead = self.lookahead([Type.LPAREN, Type.SEMICOLON,
+                        Type.LBRACE, Type.ASSIGNMENT])
+                if ahead in [Type.LPAREN, Type.ASSIGNMENT]:
                     #return type
                     self.check_declaration()
                 else:

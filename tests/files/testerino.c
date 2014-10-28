@@ -80,6 +80,9 @@ enum EnumTest { // this is legit
     MARY
 };
 
+//enum init test
+enum EnumTest e = BOB;
+
 struct NamedEnumContainer {
     enum EnumTest member;
     int i;
