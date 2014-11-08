@@ -1781,7 +1781,8 @@ class Styler(object):
         d(["check_post_identifier(): exited", self.current_token])
 
     def check_expression(self, return_on_comma = False):
-        d(["check_exp(): entered", self.current_token])
+        d(["check_exp(): entered, comma shortcutting=", return_on_comma,
+                self.current_token])
         #the empty string/expression
         if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA,
                 Type.SEMICOLON, Type.RBRACE]:
@@ -1794,7 +1795,7 @@ class Styler(object):
             self.match()
             self.check_whitespace(0)
             #because *++thing[2] etc is completely valid, start a new exp
-            self.check_expression()
+            self.check_expression(return_on_comma)
             d(["check_exp(): exited, end of unary", self.current_token])
             return
         elif self.current_type() == Type.LSQUARE: #array init
@@ -1836,10 +1837,10 @@ class Styler(object):
                 self.match(Type.RPAREN)
                 #then get what's being cast
                 self.check_whitespace(1, ALLOW_ZERO)
-                self.check_expression()
+                self.check_expression(return_on_comma)
             #subexpression
             else:
-                self.check_expression()
+                self.check_expression(return_on_comma)
                 self.check_whitespace(0)
                 self.match(Type.RPAREN)
                 #cater for thing(a)[0] etc
@@ -1856,7 +1857,7 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.LSQUARE)
                 self.check_whitespace(0)
-                self.check_expression()
+                self.check_expression(return_on_comma)
                 self.check_whitespace(0)
                 self.match(Type.RSQUARE)
                 #cater for [thing(a)][0] etc
@@ -1875,7 +1876,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match()
             self.check_whitespace(0)
-            self.check_expression()
+            self.check_expression(return_on_comma)
         #other binary operators
         elif self.current_type() in [Type.BINARY_OP, Type.MINUS, Type.STAR,
                 Type.TERNARY, Type.COLON, Type.AMPERSAND, Type.PLUS,
@@ -1883,7 +1884,7 @@ class Styler(object):
             self.check_whitespace(1)
             self.match()
             self.check_whitespace(1)
-            self.check_expression()
+            self.check_expression(return_on_comma)
         elif self.current_type() == Type.COMMA:
             while self.current_type() == Type.COMMA and not return_on_comma:
                 self.check_whitespace(0)
@@ -1906,7 +1907,7 @@ class Styler(object):
                 continue
             elif self.current_type() in [Type.CASE, Type.DEFAULT]:
                 while self.current_type() in [Type.CASE, Type.DEFAULT]:
-                    self.check_whitespace(self.depth * INDENT_SIZE)
+                    self.check_whitespace()
                     if self.current_type() == Type.DEFAULT:
                         self.match(Type.DEFAULT)
                     else:

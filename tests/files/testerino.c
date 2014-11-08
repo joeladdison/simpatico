@@ -95,6 +95,11 @@ typedef enum TypedEnumTest {
     NOPE
 } TypedEnumTest;
 
+typedef enum {
+    OK = 0,
+    USAGE = 1
+} ExplicitEnumTest;
+
 enum MoreEnum {
     YEP, THIS, IS, OK
 };
@@ -153,7 +158,7 @@ int *(*func_b(void))(char *, int) {
     return &func_a;
 }
 
-/* commented function pointer (takes function pointer as an arg) */
+/* commented function (takes function pointer as an arg) */
 int func_c(int (*func_ptr(char *, int)), int i)
 { // linebreaks before opening braces with functions are A-OK
     return *func_ptr("test", i);
