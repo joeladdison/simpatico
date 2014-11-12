@@ -29,7 +29,7 @@
 extern int errno;
 
 /* these two vars are for testing type-qualifiers */
-static long int staticTest = 0532L;
+static long int stat = 0532L;
 volatile unsigned char vuc; /* not a good name since it's entirely the type */
 
 /* this is testing the #include "dummy" correctly checks type */
@@ -80,9 +80,6 @@ enum EnumTest { // this is legit
     MARY
 };
 
-//enum init test
-enum EnumTest e = BOB;
-
 struct NamedEnumContainer {
     enum EnumTest member;
     int i;
@@ -101,7 +98,7 @@ typedef enum {
 } ExplicitEnumTest;
 
 enum MoreEnum {
-    YEP, THIS, IS, OK
+    YEP, THIS, IS, OKTOO
 };
 static struct Awkward {
     int i;
@@ -120,10 +117,9 @@ int global = 1;
 char globalChar = '\0'; /*also commented*/
 
 /* commented function */
-func_a(char *str, int i) {
-    enum EnumTest e = BOB;
-    bob.i = i;
-    return linux * str[i]; //what's linux, you ask? a standard #define
+*func_a(char *str, int i) {
+    long val = (linux * str[i]); //what's linux, you ask? a standard #define
+    return (int *) val;
 }
 
 void proto(const int * const param);
@@ -131,6 +127,7 @@ void proto(const int * const param);
 /* fun with 'arry */
 void arry(int potter[]) {
     float f = 0.3f;
+    potter[0] = (int) f;
 }
 
 /* the definition of that prototype */
@@ -152,7 +149,7 @@ int *(*func_b(void))(char *, int) {
 }
 
 /* func_b, but this time missing args */
-(*func_b_mk2())(char *, int) {
+*(*func_b_mk2())(char *, int) {
     int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
@@ -181,7 +178,6 @@ void for_continuations(void) {
 /* to test line continuations */
 void if_continutation(void) {
     size_t a;
-    a = 0;
     a++;
     if (1 && 2 && \
             3 && 4) {
@@ -254,7 +250,7 @@ void test_misc(int a, int b, int *e) {
         b += e[MORE_NUMBERS];
     }
 #undef MORE_NUMBERS
-    for (int New = 7; ; a++) {
+    for (int New = 7; New < 5e10; a++) {
         break;
     }
     while (a) {
@@ -270,13 +266,9 @@ void test_misc(int a, int b, int *e) {
     }
 }
 
-//a funkyfunction pointer
-int (*function)(int, const struct sockaddr*, socklen_t); 
-
 /* heres a comment*/
 int main(int argc, char **argv) {
     int a = 1;
-    long l = staticTest;
     int b = -a, *c = &b;
     int *d = malloc(sizeof(int) * 6);
     int **e = malloc(sizeof(int *) * 6);
@@ -294,7 +286,7 @@ int main(int argc, char **argv) {
     struct Nested u = INIT_NESTED(NULL);
 #undef INIT_NESTED
     Struct *p = &s;
-    d[0] = 1;
+    d[0] = f;
     /*//double comments are fun
     these next lines are pointless
     */
@@ -307,11 +299,15 @@ int main(int argc, char **argv) {
         if (wizard) {
         } else if (a) {
         } else {
+            printf("wizard: %d\n", wizard[0]);
         }
         char robe[] = "robe";
         char at[] = {'a', 't', '@'}; //unsafe since not terminated with '/0'
         char hat[] = {"hat"};
         int arry[7] = {[2] = 3, [4] = 2}; //init only some members
+        hat[0] = at[0] = robe[0] = arry[0] = '\0';
+        d[0] += hat[0] + at[0] + robe[0] + arry[0];
+        
     } else {
     }
     if(p->contents % 2 == 0) {

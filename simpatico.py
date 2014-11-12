@@ -2,6 +2,7 @@
 # simpatico.py
 """ This is a complete rewrite of the old simpatico.
 Hopefully it's good. """
+from __future__ import print_function, absolute_import
 
 import sys, traceback
 
@@ -25,7 +26,7 @@ DISALLOW_EXPRESSIONS = False
 
 def d(elements):
     if DEBUG:
-        print "D: " + " ".join([str(x) for x in elements])
+        print("D: " + " ".join([str(x) for x in elements]))
 
 TYPE_SPECIFIERS = ['void', 'char', 'short', 'int', 'long', 'float', 'double',
                  'signed', 'unsigned', '_Bool', '_Imaginary', '_Complex']
@@ -573,10 +574,10 @@ class Errors(object):
                 self.line_length_d, self.naming_d, self.comments_d,
                 self.indent_d]:
             for key in sorted(error_type.keys()):
-                print "line", key, ":", error_type[key]
+                print("line", key, ":", error_type[key])
         for key in sorted(self.overall_d.keys()):
             for line in self.overall_d[key]:
-                print "line", key, ":", line
+                print("line", key, ":", line)
 
     def __repr__(self):
         if not self.total:
@@ -660,9 +661,9 @@ class Styler(object):
                 if token.get_type() not in [Type.NEWLINE, Type.LINE_CONT,
                         Type.COMMENT]:
                     if token.whitespace_checked == 0:
-                        print "whitespace check missed:", token
+                        print("whitespace check missed:", token)
                     elif token.whitespace_checked > 1:
-                        print "whitespace check duplicated:", token
+                        print("whitespace check duplicated:", token)
                     
         if output_file:
             self.write_output_file()
@@ -900,7 +901,7 @@ class Styler(object):
             raise RuntimeError("%s:%d:'%s'"%(self.filename, line, identifier)+\
                     "is an unknown type, are you missing a dependency?")
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
-                Type.LPAREN, Type.ENUM]
+                Type.LPAREN, Type.ENUM, Type.STAR]
         if self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:
             old = self.current_type()
             self.match()
@@ -1020,7 +1021,7 @@ class Styler(object):
             if self.current_type() == Type.HASH:
                 self.check_precompile()
             #declaration
-            elif self.current_type() in [Type.TYPE, Type.LPAREN]:
+            elif self.current_type() in [Type.TYPE, Type.LPAREN, Type.STAR]:
                 self.check_declaration()
             #declaration missing a leading type
             elif self.current_type() == Type.UNKNOWN:
@@ -1117,14 +1118,14 @@ class Styler(object):
             if include_std:
                 new_types = headers.standard_header_types.get(include_name, -1)
                 if new_types == -1:
-                    print "".join([
+                    print("".join([
                         "\nThe header <", include_name,
                         "> was not found in the preprocessed list.\n"
                         "Please report this to the maintainer so it ",
                         "can be fixed.\n",
                         "Since the parsing will likely break terribly due to ",
                         "unknown types\n(C is not a context free language), ",
-                        "simpatico will end parsing now."])
+                        "simpatico will end parsing now."]))
                     exit(2)
             #custom header
             else:
@@ -1201,7 +1202,7 @@ class Styler(object):
             if not name.isupper():
                 self.errors.naming(token, name_type)
         else:
-            print "check_naming(): unknown naming type given: token=", token
+            raise RuntimeError("check_naming(): unknown naming type given: token=%s"%(token))
 
     def check_struct(self, isTypedef = False):
         d(["check_struct() entered"])
@@ -1667,9 +1668,9 @@ class Styler(object):
                 #they did
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
-                print self.filename, "possibly missing dependencies " + \
+                print(self.filename, "possibly missing dependencies " + \
                         "assuming '%s' is a type"%(\
-                        self.current_token.getBoldString())
+                        self.current_token.getBoldString()))
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -1737,7 +1738,7 @@ class Styler(object):
             self.match(Type.UNKNOWN)
             self.check_post_identifier()
         else:
-            print "check_sizeof(): unexpected token:", self.current_token
+            print("check_sizeof(): unexpected token:", self.current_token)
             raise RuntimeError("Found an unexpected token")
         
         d(["check_sizeof(): exited", self.current_token])
@@ -1826,8 +1827,8 @@ class Styler(object):
                     and self.peek().get_type() == Type.STAR \
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
-                print self.filename, "possibly missing dependencies, assuming ",
-                print "'%s' is a type"%(self.current_token.getBoldString())
+                print(self.filename, "possibly missing dependencies, assuming",
+                        "'%s' is a type"%(self.current_token.getBoldString()))
                 self.update_types([self.current_token.line])
             #typecast
             if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
@@ -1969,7 +1970,6 @@ class Styler(object):
                         token.inner_tokens = tokens
             #oh my, they #defined an existing symbol/keyword
             else:
-                print "this is terrible, why do this to me"
                 self.errors.overall(first.line_number,
                         "do not #define a keyword/constant to something else")
                 for n in xrange(self.position + 1, len(self.tokens)):
@@ -2047,8 +2047,8 @@ class Styler(object):
                 #they're doing something like "gcc a.c b.c c.c" and not all
                 #include the typedef, but because they're merged during
                 #compilation, gcc doesn't complain
-                print self.filename, "possibly missing dependencies, assuming ",
-                print "'%s' is a type"%(self.current_token.getBoldString())
+                print(self.filename, "possibly missing dependencies, assuming",
+                        "'%s' is a type"%(self.current_token.getBoldString()))
                 self.update_types([self.current_token.line])
                 self.match_type()
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -2181,7 +2181,7 @@ class Styler(object):
             
 if __name__ == '__main__':
     if (len(sys.argv)) == 1:
-        print "no arguments given"
+        print("no arguments given")
     if "-d" in sys.argv:
         DEBUG = True
     hide_violation_msgs = "-q" in sys.argv
@@ -2190,13 +2190,13 @@ if __name__ == '__main__':
         if sys.argv[f] in ["-d", "-q", "-o"]:
             continue
         if sys.argv[f].strip():
-            print 'Parsing %s...' % sys.argv[f]
+            print('Parsing %s...' % sys.argv[f])
             style = None
             try:
                 style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
             except RuntimeError as e:
-                print e.message
+                print(e.message)
                 sys.exit(1)
-            print style.errors
-    print "\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m"
-    print "\033[1mTHE STYLE GUIDE IS FINAL\033[0m"
+            print(style.errors)
+    print("\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m")
+    print("\033[1mTHE STYLE GUIDE IS FINAL\033[0m")
