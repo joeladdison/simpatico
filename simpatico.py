@@ -606,6 +606,7 @@ class Styler(object):
         self.filename = filename
         self.quiet = quiet
         self.path = ""
+        self.nothing_count = 0  #tracker for infinite expression loops
         if "/" in filename:
             self.path = filename[:filename.rfind("/") + 1]
         elif "\\" in filename:
@@ -645,6 +646,9 @@ class Styler(object):
         except (RuntimeError, AssertionError) as e:
             if self.quiet:
                 raise e
+            if DEBUG:
+                import traceback
+                traceback.print_exc()
             raise RuntimeError(e.message + "\n\033[1mStyling %s failed on line %d\033[0m\n"\
                     %(filename, self.current_token.line_number))
             return
@@ -1350,7 +1354,9 @@ class Styler(object):
             d(["check_typedef() type was omitted", self.current_token])
             return;
         self.check_whitespace(1)
-        assert self.current_type() == Type.UNKNOWN #wasn't a type
+        if self.current_type() != Type.UNKNOWN: #wasn't a type
+            raise RuntimeError("Expected UNKNOWN got %s"%(\
+                    TYPE_STRINGS[self.current_type()]))
         d(["check_typedef() adding type:", self.current_token.line])
         self.update_types([self.current_token.line])
         self.check_naming(self.current_token, Errors.TYPE)
@@ -1552,7 +1558,7 @@ class Styler(object):
                 if self.current_type() == Type.SEMICOLON:
                     break
                 self.check_naming(self.current_token, Errors.VARIABLE)
-                self.match(Type.UNKNOWN)
+                self.match() #not Type.UNKNOWN because it could be anything
                 self.check_post_identifier()
                 if self.current_type() == Type.ASSIGNMENT:
                     self.check_whitespace(1)
@@ -1788,7 +1794,11 @@ class Styler(object):
         if self.current_type() in [Type.RPAREN, Type.RSQUARE, Type.COMMA,
                 Type.SEMICOLON, Type.RBRACE]:
             d(["check_exp(): exited, nothing to do", self.current_token])
+            self.nothing_count += 1
+            if self.nothing_count > 20:
+                raise RuntimeError("infinite loop detected, %s"%self.current_token)
             return
+        self.nothing_count = 0
         #get those unary ops out of the way
         if self.current_type() in [Type.STAR, Type.NOT, Type.AMPERSAND,
                 Type.CREMENT, Type.AMPERSAND, Type.MINUS, Type.PLUS,
