@@ -1,5 +1,10 @@
 #include <stdio.h>
 
+typedef enum {
+    OK = 0,
+        USAGE = 1   //error
+} ExplicitEnumTest;
+
     int one = 1;     //error
 
 int main() {

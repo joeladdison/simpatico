@@ -92,8 +92,13 @@ typedef enum TypedEnumTest {
     NOPE
 } TypedEnumTest;
 
+typedef enum {
+    OK = 0,
+    USAGE = 1
+} ExplicitEnumTest;
+
 enum MoreEnum {
-    YEP, THIS, IS, OK
+    YEP, THIS, IS, OKTOO
 };
 static struct Awkward {
     int i;
@@ -112,8 +117,9 @@ int global = 1;
 char globalChar = '\0'; /*also commented*/
 
 /* commented function */
-func_a(char *str, int i) {
-    return linux * str[i]; //what's linux, you ask? a standard #define
+*func_a(char *str, int i) {
+    long val = (linux * str[i]); //what's linux, you ask? a standard #define
+    return (int *) val;
 }
 
 void proto(const int * const param);
@@ -121,6 +127,7 @@ void proto(const int * const param);
 /* fun with 'arry */
 void arry(int potter[]) {
     float f = 0.3f;
+    potter[0] = (int) f;
 }
 
 /* the definition of that prototype */
@@ -142,13 +149,13 @@ int *(*func_b(void))(char *, int) {
 }
 
 /* func_b, but this time missing args */
-(*func_b_mk2())(char *, int) {
+*(*func_b_mk2())(char *, int) {
     int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }
 
-/* commented function pointer (takes function pointer as an arg) */
+/* commented function (takes function pointer as an arg) */
 int func_c(int (*func_ptr(char *, int)), int i)
 { // linebreaks before opening braces with functions are A-OK
     return *func_ptr("test", i);
@@ -162,7 +169,7 @@ void for_continuations(void) {
 	for (int letsMakeThisLongToo = 0;
 		letsMakeThisLongToo < someReallyLongInt;
 		letsMakeThisLongToo++) {
-	    prinf("well that's slightly awful\n");
+	    printf("well that's slightly awful\n");
 	}
     }
 
@@ -243,7 +250,7 @@ void test_misc(int a, int b, int *e) {
         b += e[MORE_NUMBERS];
     }
 #undef MORE_NUMBERS
-    for (int New = 7; ; a++) {
+    for (int New = 7; New < 5e10; a++) {
         break;
     }
     while (a) {
@@ -279,7 +286,7 @@ int main(int argc, char **argv) {
     struct Nested u = INIT_NESTED(NULL);
 #undef INIT_NESTED
     Struct *p = &s;
-    d[0] = 1;
+    d[0] = f;
     /*//double comments are fun
     these next lines are pointless
     */
@@ -292,22 +299,25 @@ int main(int argc, char **argv) {
         if (wizard) {
         } else if (a) {
         } else {
+            printf("wizard: %d\n", wizard[0]);
         }
         char robe[] = "robe";
         char at[] = {'a', 't', '@'}; //unsafe since not terminated with '/0'
         char hat[] = {"hat"};
         int arry[7] = {[2] = 3, [4] = 2}; //init only some members
+        hat[0] = at[0] = robe[0] = arry[0] = '\0';
+        d[0] += hat[0] + at[0] + robe[0] + arry[0];
+        
     } else {
     }
-    if(p->contents%2 == 0) {
+    if(p->contents % 2 == 0) {
         a = 'O';
-    } else if(p->contents%2 != 0) {
+    } else if(p->contents % 2 != 0) {
         a = 'X';
     }
     if(p->contents == 1) {
         p->contents = NULL;
         return;
     }
-    int goto = 1;
     return f;
 }
