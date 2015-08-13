@@ -472,7 +472,6 @@ class Errors(object):
                 Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{}}
 
     def naming(self, token, name_type):
-        self.total += 1
         msg = "WHOOPS"
         line_no = 1
         name = ""
@@ -503,6 +502,7 @@ class Errors(object):
             else:
                 return #skip violation output since it's being printed to terminal
         else:
+            self.total += 1
             self.infracted_names[name_type][name] = line_no
         category[line_no] = violation
 
