@@ -457,7 +457,7 @@ class Errors(object):
     """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
             DEFINE, MISSING, CLOSING, FILES) = range(12)
-    def __init__(self):
+    def __init__(self, writing_to_file = False):
         self.naming_d = {}
         self.whitespace_d = {}
         self.comments_d = {}
@@ -465,7 +465,11 @@ class Errors(object):
         self.line_length_d = {}
         self.overall_d = {}
         self.indent_d = {}
+        self.notes_d = {}
         self.total = 0
+        self.writing_to_file = writing_to_file        
+        self.infracted_names = {Errors.TYPE:{}, Errors.FUNCTION:{},
+                Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{}}
 
     def naming(self, token, name_type):
         self.total += 1
@@ -488,7 +492,19 @@ class Errors(object):
                 raise RuntimeError("Unknown naming violation type")
             name = token.get_string()
             line_no = token.line_number
-        self.naming_d[line_no] = "[NAMING] '" + name + "'" + msg
+        category = self.naming_d
+        violation = "[NAMING] '" + name + "'" + msg
+        #check if violation already exists
+        if self.infracted_names[name_type].get(name):
+            #if we're outputting to file, mark each instance but as notes
+            if self.writing_to_file:
+                category = self.notes_d
+                violation = "[NOTE] '" + name + "' misnamed, but has already been infracted"
+            else:
+                return #skip violation output since it's being printed to terminal
+        else:
+            self.infracted_names[name_type][name] = line_no
+        category[line_no] = violation
 
     def whitespace(self, token, expected):
         self.total += 1
@@ -562,7 +578,7 @@ class Errors(object):
         result = []
         for error_type in [self.braces_d, self.whitespace_d,
                 self.line_length_d, self.naming_d, self.overall_d,
-                self.comments_d, self.indent_d]:
+                self.comments_d, self.indent_d, self.notes_d]:
             e = error_type.get(line_number, [])
             if e:
                 result.extend(e)
@@ -572,7 +588,7 @@ class Errors(object):
     def print_lines(self):
         for error_type in [self.braces_d, self.whitespace_d,
                 self.line_length_d, self.naming_d, self.comments_d,
-                self.indent_d]:
+                self.indent_d, self.notes_d]:
             for key in sorted(error_type.keys()):
                 print("line", key, ":", error_type[key])
         for key in sorted(self.overall_d.keys()):
@@ -598,7 +614,7 @@ class Styler(object):
     """ Where style violations are born """
     def __init__(self, filename, quiet = False, output_file = False):
         #some setup
-        self.errors = Errors()
+        self.errors = Errors(output_file)
         self.found_types = []
         self.found_defines = {}
         self.included_files = []
