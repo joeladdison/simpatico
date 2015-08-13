@@ -896,7 +896,7 @@ class Styler(object):
             self.position += 1
             self.current_token = self.tokens[self.position]
 
-    def match_type(self):
+    def match_type(self, is_typedef=False):
         d(["match_type(): entered", self.current_token])
         if self.current_type() == Type.UNKNOWN:
             identifier = self.current_token.get_string()
@@ -954,8 +954,11 @@ class Styler(object):
                 name = self.current_token
                 d(["found identifier", name])
                 self.check_whitespace(0)
-                self.update_types([name.line])
-                self.match(Type.TYPE) #(*id
+                if is_typedef:
+                    self.update_types([name.line])
+                    self.match(Type.TYPE) #(*id
+                else:
+                    self.match() #identifier
                 self.check_whitespace(0)
                 #this could very well be an array type, so check for indicies
                 while self.current_type() == Type.LSQUARE:
@@ -967,6 +970,8 @@ class Styler(object):
                 #is this a function returning a func pointer?
                 if self.current_type() == Type.LPAREN:
                     self.check_naming(name, Errors.FUNCTION)
+                elif is_typedef:
+                    self.check_naming(name, Errors.TYPE)
                 else:
                     self.check_naming(name, Errors.VARIABLE)
             #now, is this a function itself
@@ -1171,6 +1176,8 @@ class Styler(object):
 
     def update_types(self, new_types):
         self.found_types.extend(new_types)
+        d(["adding new types:", new_types])
+
         count = 0
         for token in self.tokens:
             #we use the actual token type here and not defined ones
@@ -1185,11 +1192,13 @@ class Styler(object):
         if name_type == Errors.FILES:
             name = token
             if "_" in name:
+                d(["naming violation for filename:", name])
                 self.errors.naming(token, name_type)
             return
         name = token.line
         if name_type in [Errors.VARIABLE, Errors.GLOBALS]:
             if "_" in name or name[0].isupper():
+                d(["naming violation for variable:", name])
                 self.errors.naming(token, Errors.VARIABLE)
             self.check_comment(token, name_type)
         elif name_type == Errors.FUNCTION:
@@ -1198,14 +1207,17 @@ class Styler(object):
             #if any uppercase char in the name, it's bad
             for c in name:
                 if c.isupper():
+                    d(["naming violation for function:", name])
                     self.errors.naming(token, name_type)
                     break
             self.check_comment(token, name_type)
         elif name_type == Errors.TYPE:
             if "_" in name or not name[0].isupper():
+                d(["naming violation for type:", name])
                 self.errors.naming(token, name_type)
         elif name_type == Errors.DEFINE:
             if not name.isupper():
+                d(["naming violation for define:", name])
                 self.errors.naming(token, name_type)
         else:
             raise RuntimeError("check_naming(): unknown naming type given: token=%s"%(token))
@@ -1349,7 +1361,7 @@ class Styler(object):
         elif self.current_type() == Type.ENUM:
             self.check_enum(IS_TYPEDEF)
         else:
-            self.match_type()
+            self.match_type(is_typedef=True)
         if self.current_type() == Type.SEMICOLON:
             self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
@@ -2101,7 +2113,7 @@ class Styler(object):
                     self.match_type() #type
                     if self.current_type() == Type.UNKNOWN:
                         self.check_whitespace(1, ALLOW_ZERO)
-                #identifiers can be ommitted in a prototype
+                #identifiers can be omitted in a prototype
                 if self.current_type() == Type.UNKNOWN:
                     param_names.append(self.current_token)
                     self.match(Type.UNKNOWN)

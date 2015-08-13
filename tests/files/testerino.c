@@ -156,10 +156,19 @@ int *(*func_b(void))(char *, int) {
 }
 
 /* commented function (takes function pointer as an arg) */
-int func_c(int (*func_ptr(char *, int)), int i)
+/* the pointer is actually: int * (*) (char *, int) */
+int func_c(int (*funcPtr(char *, int)), int i)
 { // linebreaks before opening braces with functions are A-OK
-    return *func_ptr("test", i);
+    return *(funcPtr("test", i));
 }
+
+/* alternate form of function pointer as an arg */
+/* the pointer is actually: int (*) (char *, int) */
+int func_d(int (*funcPtr)(char *, int), int i)
+{
+    return (*funcPtr)("test", i);
+}
+
 
 /* test breaks in for setup */
 void for_continuations(void) {
@@ -177,7 +186,7 @@ void for_continuations(void) {
 
 /* to test line continuations */
 void if_continutation(void) {
-    size_t a;
+    size_t a = 0;
     a++;
     if (1 && 2 && \
             3 && 4) {
@@ -194,7 +203,7 @@ void if_continutation(void) {
 /* doooooodoodooodooodoooo */
 void test_do(struct Nested n) {
     int a = 5;
-    int;
+    int; /* useless type name in empty declaration */
     struct Nested;
     do {
         a--;
@@ -203,7 +212,7 @@ void test_do(struct Nested n) {
 
 /* make sure we can cope with variable args */
 void test_args(const char *s, ...) {
-    struct Nested *head;
+    struct Nested *head = NULL;
     for (struct Nested *c = head; c != NULL; c = c->n) {
     }
     return;
@@ -217,9 +226,9 @@ void test_switch(int a) {
             break;
         case '!':
         case -1:
-        case 17 ... 20:
+        case 17 ... 20: /* non-standard range expression */
         case BOB:
-            return 0;
+            return;
         case 'x':
             a++;
     }
@@ -316,8 +325,8 @@ int main(int argc, char **argv) {
         a = 'X';
     }
     if(p->contents == 1) {
-        p->contents = NULL;
-        return;
+        p->contents = '\0';
+        return 1;
     }
     return f;
 }
