@@ -2226,11 +2226,13 @@ if __name__ == '__main__':
         DEBUG = True
     hide_violation_msgs = "-q" in sys.argv
     use_output_file = "-o" in sys.argv
+    files_parsed = 0
     for f in range(1, len(sys.argv)):
         if sys.argv[f] in ["-d", "-q", "-o"]:
             continue
         if sys.argv[f].strip():
             print('Parsing %s...' % sys.argv[f])
+            files_parsed += 1
             style = None
             try:
                 style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
@@ -2238,6 +2240,7 @@ if __name__ == '__main__':
                 print(e.message)
                 sys.exit(1)
             print(style.errors)
-    print("\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m")
-    print("\033[1mTHE STYLE GUIDE IS FINAL\033[0m")
+    if files_parsed > 0:
+        print("\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m")
+        print("\033[1mTHE STYLE GUIDE IS FINAL\033[0m")
 
