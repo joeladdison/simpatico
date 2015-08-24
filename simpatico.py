@@ -1996,8 +1996,19 @@ class Styler(object):
                 self.current_token.get_spacing_left() == 0:
             d(["check_define(): found macro", first])
             self.check_whitespace(0)
-            self.check_expression()
+            #chew up the macro args
+            self.match(Type.LPAREN)
+            while self.current_type() != Type.RPAREN:
+                #var, skip naming since it may not be a variable
+                self.match()
+                self.check_whitespace(0)
+                if self.current_type() == Type.COMMA:
+                    self.match(Type.COMMA)
+                    self.check_whitespace(1)
+            #chomp rparen
+            self.match(Type.RPAREN)
             self.check_whitespace(1)
+            #now onto what the macro expands to
             tokens = []
             while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
                 if self.current_type() == Type.LINE_CONT:
@@ -2055,6 +2066,7 @@ class Styler(object):
                     if self.tokens[n]._type == first._type:
                         self.tokens[n]._type = tokens[0]._type
             self.found_defines[first.line] = tokens
+        d(["check_define() exiting:", self.current_token])
         
     def check_array_assignment(self):
         d(["check_array_assignment() entered", self.current_token])
