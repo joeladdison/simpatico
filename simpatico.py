@@ -128,7 +128,8 @@ class Word(object):
         self.whitespace_checked = 0
         self.inner_tokens = []
         self.inner_position = 0
-        
+        self._is_macro = False
+
     def get_type(self):
         if self.inner_tokens:
             return self.inner_tokens[self.inner_position].get_type()
@@ -159,6 +160,12 @@ class Word(object):
 
     def empty(self):
         return len(self.line) == 0
+
+    def mark_as_macro(self):
+        self._is_macro = True
+    
+    def is_macro(self):
+        return self._is_macro
 
     def finalise(self):
         """ here's where we work out what type of thing this word is """
@@ -739,7 +746,7 @@ class Styler(object):
                 Type.COMMENT]:
             assert STOP_ON_MISSED_WHITESPACE and old.whitespace_checked != 0
         d(["matching", old])
-        if old.inner_tokens:
+        if old.inner_tokens: #i.e. if this token was #defined as something
             if req_type != Type.ANY and old.get_type() != req_type:
                 raise RuntimeError(("Parse failure: {0} expected to be of"+\
                     " type {2} but was {1}").format(str(old),
@@ -754,6 +761,11 @@ class Styler(object):
                         Type.COMMENT, Type.LINE_CONT]:
                     self.position += 1
                     self.current_token = self.tokens[self.position]
+                            
+                #special case for macros
+                if old.is_macro():
+                    d(["checking macro arguments for", old])
+                    self.check_expression()
             return
 
         # ensure we're matching what's expected
@@ -803,6 +815,7 @@ class Styler(object):
                 self.errors.braces(self.last_real_token, Errors.ELSE)
             else:
                 self.errors.braces(self.last_real_token, Errors.RUNON)
+
 
     def check_comment(self, token, declType):
         if declType == Errors.FUNCTION:
@@ -1981,15 +1994,40 @@ class Styler(object):
         #is it a macro
         if self.current_type() == Type.LPAREN and \
                 self.current_token.get_spacing_left() == 0:
+            d(["check_define(): found macro", first])
             self.check_whitespace(0)
-            #consume until newline for now
-            self.consume_line()
-        #just a plain identifier swap
-        else:
+            self.check_expression()
             self.check_whitespace(1)
             tokens = []
-            while self.current_type() not in [Type.NEWLINE,
-                    Type.COMMENT]:
+            while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
+                if self.current_type() == Type.LINE_CONT:
+                    while self.current_type() != Type.NEWLINE:
+                        self.position += 1
+                        self.current_token = self.tokens[self.position]
+                    self.position += 1
+                    self.current_token = self.tokens[self.position]
+                if self.current_token.inner_tokens:
+                    tokens.extend(self.current_token.inner_tokens)
+                else:
+                    tokens.append(self.current_token)
+                self.position += 1
+                self.current_token = self.tokens[self.position]
+                self.check_whitespace(1, ALLOW_ZERO)
+            self.match()
+            #due to how we expand out a #define, the args aren't considered
+            #part of the token
+            self.found_defines[first.line] = tokens
+            #mark all instances of this macro as such
+            for token in self.tokens[self.position:]:
+                if token.line == first.line:
+                    token.inner_tokens = tokens
+                    token.mark_as_macro()
+                
+        else:
+            d(["check_define(): found non-macro define", first])
+            self.check_whitespace(1)
+            tokens = []
+            while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
                 if self.current_type() == Type.LINE_CONT:
                     while self.current_type() != Type.NEWLINE:
                         self.position += 1
@@ -2005,6 +2043,7 @@ class Styler(object):
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             if first._type == Type.UNKNOWN: #direct access deliberate
+                #mark all instances of this definition as such
                 for token in self.tokens[self.position:]:
                     if token.line == first.line:
                         token.inner_tokens = tokens

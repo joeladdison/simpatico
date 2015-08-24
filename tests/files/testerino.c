@@ -251,9 +251,13 @@ void test_misc(int a, int b, int *e) {
         fprintf(stderr, "testerino\"\n"); //prints: testerino"
     }
 #define NUMBERS (1 << 2)
+    if NUMBERS { /* this is horrible, don't do it */
+    }
+
     for (a = 1; a; a--, b++) {
         b = b + NUMBERS;
     }
+    
 #define MORE_NUMBERS NUMBERS
     for (a = 1; a < 5; a++) {
         b += e[MORE_NUMBERS];
