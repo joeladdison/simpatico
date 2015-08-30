@@ -25,7 +25,8 @@ class TestNaming(TestSimpatico):
         self.assertSetEqual(found_error_lines, set(expected_error_lines))
 
     def test_bad(self):
-        expected_error_lines = [1, 6, 8, 10, 12, 18, 20, 21, 23, 26, 29, 32]
+        expected_error_lines = [1, 6, 8, 10, 12, 18, 20, 21, 23, 26, 29, 32,
+                36,38]
 
         f = 'tests/files/bad_naming.c'
         s = self.run_simpatico(f)

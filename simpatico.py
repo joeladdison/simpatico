@@ -1241,7 +1241,7 @@ class Styler(object):
                     break
             self.check_comment(token, name_type)
         elif name_type == Errors.TYPE:
-            if "_" in name or not name[0].isupper():
+            if "_" in name or not name[0].isupper() or name.upper() == name:
                 d(["naming violation for type:", name])
                 self.errors.naming(token, name_type)
         elif name_type == Errors.DEFINE:
