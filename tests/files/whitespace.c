@@ -46,3 +46,9 @@ int main(){ //error
             break;
     }
 }
+
+void g(int a) {
+    if (a) {
+        a++;        b++; //error, missing newline
+    }
+}

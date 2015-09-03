@@ -513,6 +513,15 @@ class Errors(object):
             self.infracted_names[name_type][name] = line_no
         category[line_no] = violation
 
+    def missing_newline(self, token):
+        self.total += 1
+        if self.whitespace_d.get(token.line_number):
+            return
+        self.whitespace_d[token.line_number] = "".join([
+                "[WHITESPACE] '", token.line, "' at ",
+                "position %d: statements must be followed by a newline" % \
+                (token.get_position())])
+
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
@@ -809,8 +818,10 @@ class Styler(object):
         # check for missing post-token newlines
         if post_newline == MUST_NEWLINE and self.last_real_token.line_number \
                 == self.current_token.line_number:
-            if old.get_type() not in [Type.LBRACE, Type.RBRACE]:
-                pass #TODO for now, might have to add semicolon checks
+            if old.get_type() == Type.SEMICOLON:
+                self.errors.missing_newline(old)
+            elif old.get_type() not in [Type.LBRACE, Type.RBRACE]:
+                pass
             elif self.tokens[self.position-2].get_type() == Type.ELSE:
                 self.errors.braces(self.last_real_token, Errors.ELSE)
             else:
