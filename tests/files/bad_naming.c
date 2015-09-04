@@ -29,10 +29,10 @@ void functionStuff(void) { /* violation */
 void struct_var(bobStruct BobStruct) { /* violation  (var naming) */
 }
 
-void good_func(int a, char B) { /* violation (for B) */
+void good_func(int a, char C) { /* violation (for B) */
 
 }
 
 typedef struct BAD { /* violation */
     int thing;
-} BAD; /* violation */
+} WORSE; /* violation */

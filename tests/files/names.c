@@ -18,11 +18,11 @@ int main() {
     int Array[5]; //violation
     int Five, Six = 6, *Seven; //violation
     bool AlsoInvalid = false; //violation
-    pid_t** UPPERCASE; //violation
+    pid_t **UPPERCASE; //violation
     char *String; //violation
-    unsigned long  BigNumber=1<<42; //violation
+    unsigned long BigNumber = 1 << 42; //violation
 
-    void* (*Function)(void*); //violation
+    void *(*Function)(void *); //violation
 
     Point point1;
     Point Point2; //violation
@@ -32,3 +32,6 @@ int main() {
 /*
 int NotAVar;
 */
+
+typedef struct BAD { //violation
+} WORSE; //violation

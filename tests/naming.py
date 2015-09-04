@@ -3,7 +3,8 @@ from tests import TestSimpatico
 class TestNaming(TestSimpatico):
 
     def test_lines(self):
-        expected_error_lines = [3, 4, 7, 11, 18, 19, 20, 21, 22, 23, 25, 28]
+        expected_error_lines = [3, 4, 7, 11, 18, 19, 20, 21, 22, 23, 25, 28, 36,
+                37]
 
         f = 'tests/files/names.c'
         s = self.run_simpatico(f)

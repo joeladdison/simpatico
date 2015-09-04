@@ -279,6 +279,20 @@ void test_misc(int a, int b, int *e) {
     }
 }
 
+/*another func due to the length of main*/
+int struct_test(int f, Struct *p) {
+    if(p->contents % 2 == 0) {
+        a = 'O';
+    } else if(p->contents % 2 != 0) {
+        a = 'X';
+    }
+    if(p->contents == 1) {
+        p->contents = '\0';
+        return 1;
+    }
+    return f;
+}
+
 /* heres a comment*/
 int main(int argc, char **argv) {
     int a = 1;
@@ -323,14 +337,6 @@ int main(int argc, char **argv) {
         
     } else {
     }
-    if(p->contents % 2 == 0) {
-        a = 'O';
-    } else if(p->contents % 2 != 0) {
-        a = 'X';
-    }
-    if(p->contents == 1) {
-        p->contents = '\0';
-        return 1;
-    }
-    return f;
+    return struct_test(f, p);
 }
+
