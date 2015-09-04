@@ -5,7 +5,7 @@ class TestWhitespace(TestSimpatico):
 
     def test_whitespace(self):
         expected_error_lines = [1, 3, 8, 10, 12, 19, 20, 23,
-                26, 29, 35, 40, 44, 45, 52]
+                26, 29, 35, 40, 44, 45, 52, 56, 58, 63, 64, 65]
 
         f = 'tests/files/whitespace.c'
         s = self.run_simpatico(f)

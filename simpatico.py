@@ -529,6 +529,30 @@ class Errors(object):
         self.whitespace_d[token.line_number] = "".join([
                 "[WHITESPACE] Pointers should be a *b or a* b, not a * b"])
 
+    def whitespace_cuddled_pointer(self, token):
+        self.total += 1
+        if self.whitespace_d.get(token.line_number):
+            return
+        self.whitespace_d[token.line_number] = "".join([
+                "[WHITESPACE] Pointers should be a *b or a* b, not a*b"])
+
+    def whitespace_pointer_consistency(self, token):
+        self.total += 1
+        if self.whitespace_d.get(token.line_number):
+            return
+        self.whitespace_d[token.line_number] = "".join([
+                "[WHITESPACE] Pointers should consistently be a *b or a* b,",
+                " not a mix"])
+
+    def whitespace_between_functions(self, token):
+        self.total += 1
+        existing = self.whitespace_d.get(token.line_number, "")
+        addline = ""
+        if existing:
+            newline = "\n"
+        self.whitespace_d[token.line_number] = "".join([existing, addline,
+                "[WHITESPACE] Functions should be separated from each other"])
+
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
@@ -632,6 +656,13 @@ class Errors(object):
         return " ".join(["%d total errors found, capped at " % self.total,
                 "B:%d W:%d C:%d N:%d O:%d L:%d I:%d" % tuple(counts)])
 
+class PointerStyle(object):
+    LEFT = 1
+    RIGHT = 2
+    UNSET = -1
+    def __init__(self):
+        pass
+
 class Styler(object):
     MAX = False
     """ Where style violations are born """
@@ -646,6 +677,7 @@ class Styler(object):
         self.quiet = quiet
         self.path = ""
         self.nothing_count = 0  #tracker for infinite expression loops
+        self.pointer_style = PointerStyle.UNSET
         if "/" in filename:
             self.path = filename[:filename.rfind("/") + 1]
         elif "\\" in filename:
@@ -656,6 +688,7 @@ class Styler(object):
         #then the guts of it all
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
+        self.end_of_last_function = self.tokens[0]
         self.comments = tokeniser.comment_lines
         #scan for overlong lines
         lnum = 1
@@ -1353,6 +1386,19 @@ class Styler(object):
             space_after = self.current_token.get_spacing_left()
             if space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
+            elif self.pointer_style == PointerStyle.UNSET:
+                if space_before:
+                    self.pointer_style = PointerStyle.LEFT
+                elif space_after:
+                    self.pointer_style = PointerStyle.RIGHT
+                else:
+                    self.errors.whitespace_cuddled_pointer(self.current_token)
+            else:
+                if self.pointer_style == PointerStyle.LEFT and space_after:
+                    self.errors.whitespace_pointer_consistency(self.current_token)
+                elif self.pointer_style == PointerStyle.RIGHT and space_before:
+                    self.errors.whitespace_pointer_consistency(self.current_token)
+                    
         d(["match_pointers() exited, found:", found, self.current_token])
         return found
 
@@ -2182,6 +2228,10 @@ class Styler(object):
             else:
                 d(["decl is a func", name])
                 self.check_whitespace(1, ALLOW_ZERO)
+                print("found a function declaration", name)
+                if self.end_of_last_function.line_number + 1 == \
+                        self.current_token.line_number:
+                    self.errors.whitespace_between_functions(self.current_token)
             param_names = []
             self.match(Type.LPAREN)
             #arg matching time
@@ -2238,6 +2288,7 @@ class Styler(object):
                 func_length = self.current_token.line_number - start_line
                 if func_length > MAX_FUNCTION_LENGTH:
                     self.errors.func_length(start_line, func_length)
+                self.end_of_last_function = self.current_token
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             elif self.current_type() == Type.ASSIGNMENT:
                 self.check_whitespace(1)

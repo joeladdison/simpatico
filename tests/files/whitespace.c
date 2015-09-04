@@ -55,13 +55,14 @@ void g(int a) {
 /*commented func but no vertical whitespace*/
 void h(int a) { //violation for no vertical whitespace
 }
-void j(int a) { //violation for no vertical whitespace
+void j(int a,int b) { //violation for no vertical whitespace AND comma
 }
 
 void pointers() {
     int *a;
     int* b; //error for consistency only
     int * c; //error
-    int * *c; //error for space in pointer types
+    int * *d; //error for space in pointer types
+    int*e; //error for no spaces
 }
 
