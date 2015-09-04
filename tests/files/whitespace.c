@@ -66,3 +66,12 @@ void pointers() {
     int*e; //error for no spaces
 }
 
+void prototype_check();
+void prototype_check() { //error for no vertical whitespace
+}
+
+
+
+void big_gap() { //error for too much whitespace
+}
+

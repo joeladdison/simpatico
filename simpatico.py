@@ -551,7 +551,8 @@ class Errors(object):
         if existing:
             newline = "\n"
         self.whitespace_d[token.line_number] = "".join([existing, addline,
-                "[WHITESPACE] Functions should be separated from each other"])
+                "[WHITESPACE] Functions should be separated by reasonable ",
+                "whitespace"])
 
     def whitespace(self, token, expected):
         self.total += 1
@@ -688,7 +689,7 @@ class Styler(object):
         #then the guts of it all
         tokeniser = Tokeniser(filename)
         self.tokens = tokeniser.get_tokens()
-        self.end_of_last_function = self.tokens[0]
+        self.last_global_line_number = 0
         self.comments = tokeniser.comment_lines
         #scan for overlong lines
         lnum = 1
@@ -1161,6 +1162,7 @@ class Styler(object):
             else:
                 raise RuntimeError("Found an awkward type in global space: " + \
                         self.current_token.getBoldString())
+            self.last_global_line_number = self.last_real_token.line_number
 
     def check_precompile(self):
         d(["check_precompile() entered", self.current_token])
@@ -1386,13 +1388,13 @@ class Styler(object):
             space_after = self.current_token.get_spacing_left()
             if space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
+            elif space_before == 0 and space_after == 0:
+                self.errors.whitespace_cuddled_pointer(self.current_token)
             elif self.pointer_style == PointerStyle.UNSET:
                 if space_before:
                     self.pointer_style = PointerStyle.LEFT
                 elif space_after:
                     self.pointer_style = PointerStyle.RIGHT
-                else:
-                    self.errors.whitespace_cuddled_pointer(self.current_token)
             else:
                 if self.pointer_style == PointerStyle.LEFT and space_after:
                     self.errors.whitespace_pointer_consistency(self.current_token)
@@ -2228,9 +2230,15 @@ class Styler(object):
             else:
                 d(["decl is a func", name])
                 self.check_whitespace(1, ALLOW_ZERO)
-                print("found a function declaration", name)
-                if self.end_of_last_function.line_number + 1 == \
-                        self.current_token.line_number:
+                #check for appropriate space between this and the last global
+                #space token
+                current_line = self.current_token.line_number
+                #gap = num lines between the two, exclusive
+                gap =  current_line - self.last_global_line_number - 1
+                for i in range(self.last_global_line_number, current_line):
+                    if self.comments.get(i):
+                        gap -= 1
+                if gap < 1 or gap > 2:
                     self.errors.whitespace_between_functions(self.current_token)
             param_names = []
             self.match(Type.LPAREN)
@@ -2288,7 +2296,7 @@ class Styler(object):
                 func_length = self.current_token.line_number - start_line
                 if func_length > MAX_FUNCTION_LENGTH:
                     self.errors.func_length(start_line, func_length)
-                self.end_of_last_function = self.current_token
+                self.last_global_line_number = self.current_token.line_number
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             elif self.current_type() == Type.ASSIGNMENT:
                 self.check_whitespace(1)
