@@ -1339,7 +1339,7 @@ class Styler(object):
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
             while self.current_type() in [Type.STAR, Type.IGNORE]:
-                self.check_whitespace(1, ALLOW_ZERO)
+                self.check_whitespace(0)
                 self.match()
             found = True
         d(["match_pointers() exited, found:", found, self.current_token])

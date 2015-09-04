@@ -52,3 +52,16 @@ void g(int a) {
         a++;        b++; //error, missing newline
     }
 }
+/*commented func but no vertical whitespace*/
+void h(int a) { //violation for no vertical whitespace
+}
+void j(int a) { //violation for no vertical whitespace
+}
+
+void pointers() {
+    int *a;
+    int* b; //error for consistency only
+    int * c; //error
+    int * *c; //error for space in pointer types
+}
+
