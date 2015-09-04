@@ -4,6 +4,13 @@
 int one =1; //error
 int two = 2;
 int three= 3; //error
+void f() { //error
+}
+void g() { //error
+}
+/*still not enough space*/
+void h() { //error
+}
 
 /* tests spacing around possible unary operators */
 void unary_binary_mix() {
