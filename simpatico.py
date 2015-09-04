@@ -522,6 +522,13 @@ class Errors(object):
                 "position %d: statements must be followed by a newline" % \
                 (token.get_position())])
 
+    def whitespace_surrounding_pointer(self, token):
+        self.total += 1
+        if self.whitespace_d.get(token.line_number):
+            return
+        self.whitespace_d[token.line_number] = "".join([
+                "[WHITESPACE] Pointers should be a *b or a* b, not a * b"])
+
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
@@ -529,7 +536,7 @@ class Errors(object):
             return
         self.whitespace_d[token.line_number] = "".join([
                 "[WHITESPACE] '", token.line, "' at ",
-                "position %d: expected %d whitespace, found %d " % \
+                "position %d: expected %d whitespace, found %d" % \
                 (token.get_position(), expected, token.get_spacing_left())])
                 
     def indent(self, token, expected):
@@ -1336,12 +1343,16 @@ class Styler(object):
         d(["match_pointers() entered", self.current_token])
         found = False
         if self.current_type() == Type.STAR:
+            space_before = self.current_token.get_spacing_left()
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
             while self.current_type() in [Type.STAR, Type.IGNORE]:
                 self.check_whitespace(0)
                 self.match()
             found = True
+            space_after = self.current_token.get_spacing_left()
+            if space_before and space_after:
+                self.errors.whitespace_surrounding_pointer(self.current_token)
         d(["match_pointers() exited, found:", found, self.current_token])
         return found
 
