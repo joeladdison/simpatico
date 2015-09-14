@@ -664,6 +664,13 @@ class PointerStyle(object):
     def __init__(self):
         pass
 
+class EnumStyle(object):
+    BLOCK = 1
+    INLINE = 2
+    UNSET = -1
+    def __init__(self):
+        pass
+
 class Styler(object):
     MAX = False
     """ Where style violations are born """
@@ -1377,16 +1384,26 @@ class Styler(object):
     def match_pointers(self):
         d(["match_pointers() entered", self.current_token])
         found = False
+        complicated_pointer = False
+        before = self.last_real_token.get_type()
         if self.current_type() == Type.STAR:
             space_before = self.current_token.get_spacing_left()
             self.check_whitespace(1, ALLOW_ZERO)
             self.match(Type.STAR)
             while self.current_type() in [Type.STAR, Type.IGNORE]:
-                self.check_whitespace(0)
+                self.check_whitespace(1, ALLOW_ZERO)
+                if self.current_type() == Type.IGNORE:
+                    complicated_pointer = True #int * const... etc
                 self.match()
             found = True
             space_after = self.current_token.get_spacing_left()
-            if space_before and space_after:
+            if self.current_type() != Type.UNKNOWN:
+                #things get weird if it's not a declaration
+                d(["WARNING: skipping pointer space checks, not a declaration"])
+            elif complicated_pointer or before != Type.TYPE:
+                #other complicated things like: int *(*funcpointer)
+                d(["WARNING: skipping pointer space checks, too complicated"])
+            elif space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
             elif space_before == 0 and space_after == 0:
                 self.errors.whitespace_cuddled_pointer(self.current_token)
@@ -1406,6 +1423,8 @@ class Styler(object):
 
     def check_enum(self, is_typedef = False):
         d(["check_enum() entered", self.current_token])
+        indent_style = EnumStyle.UNSET
+        first_line = -1
         self.match(Type.ENUM)
         self.check_whitespace(1)
         if self.current_type() == Type.UNKNOWN:
@@ -1414,42 +1433,59 @@ class Styler(object):
             self.check_whitespace(1)
         #does it have anything of interest to parse
         if self.current_type() == Type.LBRACE:
-            line = self.current_token.line_number
+            first_line = self.current_token.line_number
             self.match(Type.LBRACE, MAY_NEWLINE, MAY_NEWLINE)
-            expected = 0
-            if self.current_token.line_number != line:
-                expected += INDENT_SIZE
-            self.check_whitespace(expected)
+            outer_style = EnumStyle.INLINE
+            if self.current_token.line_number != first_line:
+                outer_style = EnumStyle.BLOCK
+                self.depth += 1
+                self.check_whitespace()
+            else:
+                self.check_whitespace(0)
             while self.current_type() != Type.RBRACE:
                 self.check_naming(self.current_token, Errors.DEFINE)
+                if indent_style == EnumStyle.BLOCK:
+                    self.line_continuation = False
                 self.check_expression(return_on_comma=True)
                 if self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
                     line = self.current_token.line_number
-                    self.match(Type.COMMA)
-                    if line == self.current_token.line_number:
+                    if indent_style == EnumStyle.INLINE:
+                        self.match(Type.COMMA, NO_NEWLINE)
                         self.check_whitespace(1)
-                    else:
-                        self.line_continuation = False
-                        self.check_whitespace(expected)
+                    elif indent_style == EnumStyle.BLOCK:
+                        self.match(Type.COMMA, MUST_NEWLINE)
+                        self.check_whitespace()
+                    else: #UNSET
+                        self.match(Type.COMMA)
+                        if self.current_type() != Type.RBRACE:
+                            if self.current_token.line_number != line:
+                                indent_style = EnumStyle.BLOCK
+                                self.line_continuation = False
+                                self.check_whitespace()
+                                d(["enum style is block"])
+                            else:
+                                indent_style = EnumStyle.INLINE
+                                self.check_whitespace(1)
+                                d(["enum style is inline"])
+            if outer_style == EnumStyle.BLOCK:
+                self.depth -= 1
             self.check_whitespace(0)
             self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
-        if is_typedef:
-            d(["check_enum() exited", self.current_token])
-            return
-        found = self.match_pointers()
-        if self.current_type() == Type.UNKNOWN:
-            self.check_whitespace(1, found)
-            self.check_naming(self.current_token, Errors.VARIABLE)
-            self.match(Type.UNKNOWN)
-            while self.current_type() == Type.COMMA:
-                self.check_whitespace(0)
-                self.match(Type.COMMA)
-                self.check_whitespace(1)
-                found = self.match_pointers()
+        if not is_typedef:
+            found = self.match_pointers()
+            if self.current_type() == Type.UNKNOWN:
                 self.check_whitespace(1, found)
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 self.match(Type.UNKNOWN)
+                while self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
+                    self.match(Type.COMMA)
+                    self.check_whitespace(1)
+                    found = self.match_pointers()
+                    self.check_whitespace(1, found)
+                    self.check_naming(self.current_token, Errors.VARIABLE)
+                    self.match(Type.UNKNOWN)
         d(["check_enum() exited", self.current_token])
 
     def check_typedef(self):

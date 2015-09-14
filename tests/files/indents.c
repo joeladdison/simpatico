@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 typedef enum {
-    OK = 0,
+    BLOCK = 0,
         USAGE = 1   //error
 } ExplicitEnumTest;
 
@@ -51,3 +51,9 @@ int main() {
             break;
     }
     }             //error
+
+enum Another {
+    INLINE, TEST, WITH,
+            LINE_CONTINUATION,
+    AND_BAD_BLOCK       //error
+};
