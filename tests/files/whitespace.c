@@ -4,12 +4,12 @@
 int one =1; //error
 int two = 2;
 int three= 3; //error
-void f() { //error
+void f() { //error for vertical whitespace
 }
-void g() { //error
+void g() { //error for vertical whitespace
 }
 /*still not enough space*/
-void h() { //error
+void h() { //error for vertical whitespace
 }
 
 /* tests spacing around possible unary operators */

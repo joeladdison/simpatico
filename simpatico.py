@@ -2261,10 +2261,11 @@ class Styler(object):
             self.match(Type.UNKNOWN)
         #is this a function?
         if self.current_type() == Type.LPAREN:
+            has_bad_vertical_whitespace = False
             if not name:
                 d(["decl is a func returning func pointer"])
             else:
-                d(["decl is a func", name])
+                d(["decl is a func or prototype", name])
                 self.check_whitespace(1, ALLOW_ZERO)
                 #check for appropriate space between this and the last global
                 #space token
@@ -2275,7 +2276,7 @@ class Styler(object):
                     if self.comments.get(i):
                         gap -= 1
                 if gap < 1 or gap > 2:
-                    self.errors.whitespace_between_functions(self.current_token)
+                    has_bad_vertical_whitespace = True
             param_names = []
             self.match(Type.LPAREN)
             #arg matching time
@@ -2315,6 +2316,9 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.RPAREN, MAY_NEWLINE)
             if self.current_type() == Type.LBRACE:
+                #violate vertical whitespace if noted from earlier
+                if has_bad_vertical_whitespace:
+                    self.errors.whitespace_between_functions(self.current_token)
                 #check the name, now that we're in the definition
                 if name:
                     self.check_naming(name, Errors.FUNCTION)
