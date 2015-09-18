@@ -1349,14 +1349,14 @@ class Styler(object):
         self.check_attribute()
         is_pointer = self.match_pointers()
         if not isTypedef and self.current_type() == Type.UNKNOWN:
-            self.check_whitespace(1, is_pointer);
+            self.check_whitespace(1, is_pointer)
             self.check_naming(self.current_token, Errors.VARIABLE)
             #deal with the potential assignment while we're there
             self.check_expression()
             while self.current_type() == Type.COMMA:
-                self.check_whitespace(0);
-                self.match(Type.COMMA);
-                self.check_whitespace(1, self.match_pointers());
+                self.check_whitespace(0)
+                self.match(Type.COMMA)
+                self.check_whitespace(1, self.match_pointers())
                 self.check_naming(self.current_token, Errors.VARIABLE)
                 #deal with the potential assignment while we're there
                 self.check_expression()
@@ -1452,22 +1452,27 @@ class Styler(object):
                     line = self.current_token.line_number
                     if indent_style == EnumStyle.INLINE:
                         self.match(Type.COMMA, NO_NEWLINE)
+                        if self.current_type() == Type.RBRACE:
+                            break
                         self.check_whitespace(1)
                     elif indent_style == EnumStyle.BLOCK:
                         self.match(Type.COMMA, MUST_NEWLINE)
+                        if self.current_type() == Type.RBRACE:
+                            break
                         self.check_whitespace()
                     else: #UNSET
                         self.match(Type.COMMA)
-                        if self.current_type() != Type.RBRACE:
-                            if self.current_token.line_number != line:
-                                indent_style = EnumStyle.BLOCK
-                                self.line_continuation = False
-                                self.check_whitespace()
-                                d(["enum style is block"])
-                            else:
-                                indent_style = EnumStyle.INLINE
-                                self.check_whitespace(1)
-                                d(["enum style is inline"])
+                        if self.current_type() == Type.RBRACE:
+                            break
+                        if self.current_token.line_number != line:
+                            indent_style = EnumStyle.BLOCK
+                            self.line_continuation = False
+                            self.check_whitespace()
+                            d(["enum style is block"])
+                        else:
+                            indent_style = EnumStyle.INLINE
+                            self.check_whitespace(1)
+                            d(["enum style is inline"])
             if outer_style == EnumStyle.BLOCK:
                 self.depth -= 1
             self.check_whitespace(0)
@@ -1501,7 +1506,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
             d(["check_typedef() type was omitted", self.current_token])
-            return;
+            return
         self.check_whitespace(1)
         if self.current_type() != Type.UNKNOWN: #wasn't a type
             raise RuntimeError("Expected UNKNOWN got %s"%(\
