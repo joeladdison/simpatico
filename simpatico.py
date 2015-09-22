@@ -4,7 +4,7 @@
 Hopefully it's good. """
 from __future__ import print_function, absolute_import
 
-import sys, traceback
+import sys
 
 import headers
 
@@ -29,7 +29,7 @@ def d(elements):
         print("D: " + " ".join([str(x) for x in elements]))
 
 TYPE_SPECIFIERS = ['void', 'char', 'short', 'int', 'long', 'float', 'double',
-                 'signed', 'unsigned', '_Bool', '_Imaginary', '_Complex']
+        'signed', 'unsigned', '_Bool', '_Imaginary', '_Complex']
 DEFINED_TYPES = ['__UINTMAX_TYPE__', '__SIZE_TYPE__', '__CHAR16_Type__',
         '__WCHAR_TYPE__', '__WINT_TYPE__', '__CHAR32_TYPE__',
         '__INTMAX_TYPE__', '__PTRDIFF_TYPE__'] #default defines with gcc
@@ -101,7 +101,7 @@ class Type(object):
         #31
         SEMICOLON, COLON, TERNARY, ASSIGNMENT, IF, ELSE, LSQUARE, RSQUARE,
         #39
-        LINE_CONT, DEFAULT, NOT, SIZEOF, PRECOMPILER, ATTRIBUTE, HASH, ENUM,
+        LINE_CONT, DEFAULT, NOT, SIZEOF, PREPROCESSOR, ATTRIBUTE, HASH, ENUM,
         #47
         GOTO, PLUS, TILDE, STRUCT_OP
     ) = range(51)
@@ -113,7 +113,7 @@ TYPE_STRINGS = ["ERROR_TYPE", "DEFINE", "INCLUDE", "COMMENT", "NEWLINE",
         "TYPEDEF", "RETURN", "UNKNOWN", "CONSTANT", "WHILE", "DO",
         "SEMICOLON", "COLON", "TERNARY", "ASSIGNMENT", "IF", "ELSE",
         "LSQUARE", "RSQUARE", "LINE_CONT", "DEFAULT", "NOT", "SIZEOF",
-        "PRECOMPILER", "ATTRIBUTE", "HASH", "ENUM", "GOTO", "PLUS", "TILDE",
+        "PREPROCESSOR", "ATTRIBUTE", "HASH", "ENUM", "GOTO", "PLUS", "TILDE",
         "STRUCT_OP"]
 
 
@@ -163,19 +163,19 @@ class Word(object):
 
     def mark_as_macro(self):
         self._is_macro = True
-    
+
     def is_macro(self):
         return self._is_macro
 
     def finalise(self):
         """ here's where we work out what type of thing this word is """
-        self.line = "".join(self.line)
-        line = self.line
+        line = "".join(self.line)
+        self.line = line
         #prepare thyself for many, many elifs
         if line.lower() == "define":
             self._type = Type.DEFINE
         elif line in ["ifdef", "ifndef", "endif", "undef", "pragma", "elif"]:
-            self._type = Type.PRECOMPILER
+            self._type = Type.PREPROCESSOR
         elif line == "include":
             self._type = Type.INCLUDE
         elif line == "#":
@@ -453,7 +453,6 @@ class Tokeniser(object):
                     #... END THEM
                     self.add_to_word(c, n - self.line_start)
                     self.end_word()
-                    
             else:
                 self.add_to_word(c, n - self.line_start)
 
@@ -474,7 +473,7 @@ class Errors(object):
         self.indent_d = {}
         self.notes_d = {}
         self.total = 0
-        self.writing_to_file = writing_to_file        
+        self.writing_to_file = writing_to_file
         self.infracted_names = {Errors.TYPE:{}, Errors.FUNCTION:{},
                 Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{}}
 
@@ -505,9 +504,11 @@ class Errors(object):
             #if we're outputting to file, mark each instance but as notes
             if self.writing_to_file:
                 category = self.notes_d
-                violation = "[NOTE] '" + name + "' misnamed, but has already been infracted"
+                violation = "[NOTE] '" + name + \
+                        "' misnamed, but has already been infracted"
             else:
-                return #skip violation output since it's being printed to terminal
+                #skip violation output since it's being printed to terminal
+                return
         else:
             self.total += 1
             self.infracted_names[name_type][name] = line_no
@@ -536,7 +537,7 @@ class Errors(object):
         self.whitespace_d[token.line_number] = "".join([
                 "[WHITESPACE] Pointers should be a *b or a* b, not a*b"])
 
-    def whitespace_pointer_consistency(self, token):
+    def pointer_space_consistency(self, token):
         self.total += 1
         if self.whitespace_d.get(token.line_number):
             return
@@ -563,7 +564,7 @@ class Errors(object):
                 "[WHITESPACE] '", token.line, "' at ",
                 "position %d: expected %d whitespace, found %d" % \
                 (token.get_position(), expected, token.get_spacing_left())])
-                
+
     def indent(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
@@ -574,7 +575,7 @@ class Errors(object):
                 "[INDENTATION] '", token.line,
                 "' expected indent of %d spaces, found %d" % \
                 (expected, token.get_spacing_left())])
-        
+
     def line_length(self, line_number, length):
         self.total += 1
         self.line_length_d[line_number] = "[LINE-LENGTH] line is " + \
@@ -592,7 +593,7 @@ class Errors(object):
         self.total += 1
         if not self.overall_d.get(line_number):
             self.overall_d[line_number] = []
-        self.overall_d[line_number].append("[OVERALL] %s" % message)        
+        self.overall_d[line_number].append("[OVERALL] %s" % message)
 
     def braces(self, token, error_type):
         self.total += 1
@@ -729,16 +730,16 @@ class Styler(object):
             if DEBUG:
                 import traceback
                 traceback.print_exc()
-            raise RuntimeError(e.message + "\n\033[1mStyling %s failed on line %d\033[0m\n"\
-                    %(filename, self.current_token.line_number))
-            return
+            line_number = self.current_token.line_number
+            raise RuntimeError(e.message + "\n\033[1mStyling " + filename + \
+                    "failed on line %d\033[0m\n"%line_number)
         #before we're done with the file, check the filename style
         if "/" in filename:
             filename = filename[filename.rfind("/") + 1:]
         elif "\\" in filename:
             filename = filename[filename.rfind("\\") + 2:]
         self.check_naming(filename, Errors.FILES)
-        
+
         #make sure no changes skip whitespace
         if DEBUG:
             for token in self.tokens:
@@ -748,7 +749,7 @@ class Styler(object):
                         print("whitespace check missed:", token)
                     elif token.whitespace_checked > 1:
                         print("whitespace check duplicated:", token)
-                    
+
         if output_file:
             self.write_output_file()
             return
@@ -757,7 +758,7 @@ class Styler(object):
             self.errors.print_lines()
 
     def current_type(self):
-        return self.current_token.get_type()    
+        return self.current_token.get_type()
 
     def previous_token(self):
         if self.current_token.inner_tokens:
@@ -818,7 +819,7 @@ class Styler(object):
                         Type.COMMENT, Type.LINE_CONT]:
                     self.position += 1
                     self.current_token = self.tokens[self.position]
-                            
+
                 #special case for macros
                 if old.is_macro():
                     d(["checking macro arguments for", old])
@@ -847,7 +848,7 @@ class Styler(object):
         #update
         self.position += 1
         self.current_token = self.tokens[self.position] #deliberately unsafe
-        
+
         # clear the trash
         while self.current_type() in [Type.COMMENT, Type.NEWLINE,
                 Type.LINE_CONT]:
@@ -855,7 +856,7 @@ class Styler(object):
                 self.comments[self.current_token.line_number] = True
             self.position += 1
             self.current_token = self.tokens[self.position]
-       
+
         # check for extra post-token newlines
         if post_newline == NO_NEWLINE and self.last_real_token.line_number \
                 != self.current_token.line_number:
@@ -875,7 +876,6 @@ class Styler(object):
             else:
                 self.errors.braces(self.last_real_token, Errors.RUNON)
 
-
     def check_comment(self, token, declType):
         if declType == Errors.FUNCTION:
             if not self.comments.get(token.line_number - 1):
@@ -884,11 +884,10 @@ class Styler(object):
             if not self.comments.get(token.line_number - 1) and \
                     not self.comments.get(token.line_number):
                 self.errors.comments(token.line_number, Errors.GLOBALS)
-            
 
     def check_whitespace(self, expected = -1, one_or_zero = not ALLOW_ZERO):
         token = self.current_token
-        #skip checks for tokens that are precompiler definitions 
+        #skip checks for tokens that are precompiler definitions
         #(provided they aren't the first)
         if token.inner_tokens and token.inner_position != 0:
             return
@@ -905,7 +904,7 @@ class Styler(object):
             assert not STOP_ON_DUPLICATED_WHITESPACE_CHECK
             if token.whitespace_checked > 10:
                 #this looks like an infinite loop
-                raise RuntimeError("infinite loop detected on token %s"%(str(token)))
+                raise RuntimeError("infinite loop detected at " + str(token))
             return
         token.whitespace_checked += 1
         if one_or_zero and not self.line_continuation:
@@ -968,7 +967,7 @@ class Styler(object):
 
     def consume_line(self):
         while self.current_type() != Type.NEWLINE:
-            d(["consume_line(): consuming:", self.current_token, 
+            d(["consume_line(): consuming:", self.current_token,
                     self.current_type() == Type.NEWLINE])
             if self.current_type() == Type.LINE_CONT:
                 #push it past the next newline
@@ -1000,7 +999,7 @@ class Styler(object):
             if old == Type.STRUCT:
                 self.check_whitespace(1)
                 self.match() #struct identifier
-            while self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:           
+            while self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:
                 self.check_whitespace(1)
                 old = self.current_type()
                 self.match()
@@ -1238,8 +1237,8 @@ class Styler(object):
                     fun_with_recursion = Styler(name, quiet=True)
                 except (RuntimeError, AssertionError) as e:
                     self.current_token = include_token
-                    raise RuntimeError("#included file %s caused an error:\n\t%s"%(\
-                            include_name, e.message))
+                    raise RuntimeError("#included file " + include_name + \
+                            " caused an error:\n\t%s"%(e.message))
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -1259,7 +1258,7 @@ class Styler(object):
             if self.last_real_token.get_type() != Type.NEWLINE:
                 self.check_define()
 #TODO undefine
-        elif self.current_type() in [Type.PRECOMPILER, Type.IF, Type.ELSE]:
+        elif self.current_type() in [Type.PREPROCESSOR, Type.IF, Type.ELSE]:
             self.consume_line()
         d(["check_precompile() exited", self.current_token])
 
@@ -1309,7 +1308,8 @@ class Styler(object):
                 d(["naming violation for define:", name])
                 self.errors.naming(token, name_type)
         else:
-            raise RuntimeError("check_naming(): unknown naming type given: token=%s"%(token))
+            raise RuntimeError("check_naming():" + \
+                               " unknown naming type given: token=%s"%(token))
 
     def check_struct(self, isTypedef = False):
         d(["check_struct() entered"])
@@ -1362,7 +1362,6 @@ class Styler(object):
                 self.check_expression()
             self.check_attribute()
         d(["check_struct() exited", self.current_token])
-        
 
     def check_attribute(self):
         if self.current_type() == Type.ATTRIBUTE:
@@ -1414,10 +1413,10 @@ class Styler(object):
                     self.pointer_style = PointerStyle.RIGHT
             else:
                 if self.pointer_style == PointerStyle.LEFT and space_after:
-                    self.errors.whitespace_pointer_consistency(self.current_token)
+                    self.errors.pointer_space_consistency(self.current_token)
                 elif self.pointer_style == PointerStyle.RIGHT and space_before:
-                    self.errors.whitespace_pointer_consistency(self.current_token)
-                    
+                    self.errors.pointer_space_consistency(self.current_token)
+
         d(["match_pointers() exited, found:", found, self.current_token])
         return found
 
@@ -1793,7 +1792,7 @@ class Styler(object):
         elif self.current_type() == Type.IF:
             self.match(Type.IF)
             has_else = self.has_matching_else()
-            d(["check_statement(): ", self.last_real_token, 
+            d(["check_statement(): ", self.last_real_token,
                     " has else:", has_else])
             self.check_condition()
             self.should_have_block(has_else)
@@ -1815,7 +1814,7 @@ class Styler(object):
                     self.check_whitespace(1, ALLOW_ZERO)
                     self.match(Type.IF)
                     has_else = self.has_matching_else()
-                    d(["check_statement(): ", self.last_real_token, 
+                    d(["check_statement(): ", self.last_real_token,
                             " has else:", has_else])
                     self.check_condition()
                     self.should_have_block(has_else)
@@ -1900,7 +1899,7 @@ class Styler(object):
         else:
             print("check_sizeof(): unexpected token:", self.current_token)
             raise RuntimeError("Found an unexpected token")
-        
+
         d(["check_sizeof(): exited", self.current_token])
 
     def check_post_identifier(self):
@@ -1950,7 +1949,8 @@ class Styler(object):
             d(["check_exp(): exited, nothing to do", self.current_token])
             self.nothing_count += 1
             if self.nothing_count > 20:
-                raise RuntimeError("infinite loop detected, %s"%self.current_token)
+                raise RuntimeError("infinite loop detected, %s"% \
+                        self.current_token)
             return
         self.nothing_count = 0
         #get those unary ops out of the way
@@ -2035,7 +2035,7 @@ class Styler(object):
         elif self.current_type() == Type.SIZEOF:
             self.match(Type.SIZEOF)
             self.check_sizeof()
-            
+
         #struct ops are special
         if self.current_type() == Type.STRUCT_OP:
             self.check_whitespace(0)
@@ -2144,7 +2144,6 @@ class Styler(object):
                 if token.line == first.line:
                     token.inner_tokens = tokens
                     token.mark_as_macro()
-                
         else:
             d(["check_define(): found non-macro define", first])
             self.check_whitespace(1)
@@ -2178,7 +2177,7 @@ class Styler(object):
                         self.tokens[n]._type = tokens[0]._type
             self.found_defines[first.line] = tokens
         d(["check_define() exiting:", self.current_token])
-        
+
     def check_array_assignment(self):
         d(["check_array_assignment() entered", self.current_token])
         if self.current_type() in [Type.UNKNOWN, Type.CONSTANT]:
@@ -2276,7 +2275,7 @@ class Styler(object):
                 #space token
                 current_line = self.current_token.line_number
                 #gap = num lines between the two, exclusive
-                gap =  current_line - self.last_global_line_number - 1
+                gap = current_line - self.last_global_line_number - 1
                 for i in range(self.last_global_line_number, current_line):
                     if self.comments.get(i):
                         gap -= 1
@@ -2298,7 +2297,7 @@ class Styler(object):
                     self.match(Type.STRUCT_OP)
                 #types can be omitted (defaults to int)
                 if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE,
-                        Type.ENUM]: 
+                        Type.ENUM]:
                     self.match_type() #type
                     if self.current_type() == Type.UNKNOWN:
                         self.check_whitespace(1, ALLOW_ZERO)
@@ -2365,7 +2364,7 @@ class Styler(object):
         #is it an array?
         if self.current_type() == Type.LSQUARE:
             array = True
-            self.check_post_identifier()            
+            self.check_post_identifier()
         #token will now be , or = or ;
         if self.current_type() == Type.ASSIGNMENT:
             self.check_whitespace(1)
@@ -2375,7 +2374,7 @@ class Styler(object):
                 self.check_array_assignment()
             else:
                 self.check_expression(return_on_comma = True)
-        
+
         #is it a multi-var declaration?
         while self.current_type() == Type.COMMA:
             self.check_whitespace(0)
@@ -2395,7 +2394,7 @@ class Styler(object):
             self.check_whitespace(0)
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         d(["check_declaration() exited", self.current_token])
-            
+
 if __name__ == '__main__':
     if (len(sys.argv)) == 1:
         print("no arguments given")
@@ -2412,7 +2411,8 @@ if __name__ == '__main__':
             files_parsed += 1
             style = None
             try:
-                style = Styler(sys.argv[f], hide_violation_msgs, use_output_file)
+                style = Styler(sys.argv[f], hide_violation_msgs,
+                               use_output_file)
             except RuntimeError as e:
                 print(e.message)
                 sys.exit(1)
