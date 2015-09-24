@@ -105,6 +105,46 @@ class Type(object):
         #47
         GOTO, PLUS, TILDE, STRUCT_OP
     ) = range(51)
+    SIMPLE_TYPES = {"include" : INCLUDE,
+            Terminals.KW_IF : IF,
+            Terminals.KW_ELSE : ELSE,
+            Terminals.KW_GOTO : GOTO,
+            Terminals.KW_EXTERN : EXTERN,
+            Terminals.KW_BREAK : BREAK,
+            Terminals.KW_FOR : FOR,
+            Terminals.KW_DO : DO,
+            Terminals.KW_WHILE : WHILE,
+            Terminals.KW_SWITCH : SWITCH,
+            Terminals.KW_CASE : CASE,
+            Terminals.KW_DEFAULT : DEFAULT,
+            Terminals.KW_SIZEOF : SIZEOF,
+            Terminals.KW_INLINE : IGNORE,
+            Terminals.KW_RETURN : RETURN,
+            Terminals.KW_CONTINUE : BREAK, #since they're equivalent for us
+            "#" : HASH,
+            "\n" : NEWLINE,
+            "," : COMMA,
+            "{" : LBRACE,
+            "?" : TERNARY,
+            ":" : COLON,
+            "}" : RBRACE,
+            "(" : LPAREN,
+            ")" : RPAREN,
+            "-" : MINUS,
+            "+" : PLUS,
+            "~" : TILDE,
+            "\t" : COMMENT,
+            ";" : SEMICOLON,
+            "!" : NOT,
+            "typedef" : TYPEDEF,
+            "*" : STAR,
+            "&" : AMPERSAND,
+            "[" : LSQUARE,
+            "]" : RSQUARE,
+            "\\" : LINE_CONT,
+            "__attribute__" : ATTRIBUTE,
+            "enum" : ENUM
+        }
 
 TYPE_STRINGS = ["ERROR_TYPE", "DEFINE", "INCLUDE", "COMMENT", "NEWLINE",
         "COMMA", "LBRACE", "RBRACE", "LPAREN", "RPAREN", "MINUS", "BINARY_OP",
@@ -171,105 +211,29 @@ class Word(object):
         """ here's where we work out what type of thing this word is """
         line = "".join(self.line)
         self.line = line
-        #prepare thyself for many, many elifs
-        if line.lower() == "define":
+        
+        if line in Type.SIMPLE_TYPES:
+            self._type = Type.SIMPLE_TYPES[line]
+        elif line.lower() == "define":
             self._type = Type.DEFINE
         elif line in ["ifdef", "ifndef", "endif", "undef", "pragma", "elif"]:
             self._type = Type.PREPROCESSOR
-        elif line == "include":
-            self._type = Type.INCLUDE
-        elif line == "#":
-            self._type = Type.HASH
-        elif line == Terminals.KW_IF:
-            self._type = Type.IF
-        elif line == Terminals.KW_ELSE:
-            self._type = Type.ELSE
-        elif line == Terminals.KW_GOTO:
-            self._type = Type.GOTO
-        elif line == "\t":
-            self._type = Type.COMMENT
-        elif line == ";":
-            self._type = Type.SEMICOLON
-        elif line == "!":
-            self._type = Type.NOT
         elif line in ASSIGNMENTS:
             self._type = Type.ASSIGNMENT
-        elif line == "\n":
-            self._type = Type.NEWLINE
-        elif line == ",":
-            self._type = Type.COMMA
-        elif line == "{":
-            self._type = Type.LBRACE
-        elif line == "?":
-            self._type = Type.TERNARY
-        elif line == ":":
-            self._type = Type.COLON
-        elif line == "}":
-            self._type = Type.RBRACE
-        elif line == "(":
-            self._type = Type.LPAREN
-        elif line == ")":
-            self._type = Type.RPAREN
-        elif line == "-":
-            self._type = Type.MINUS
-        elif line == "+":
-            self._type = Type.PLUS
-        elif line == "~":
-            self._type = Type.TILDE
         elif line in STRUCT_OPERATORS:
             self._type = Type.STRUCT_OP
         elif line in BINARY_OPERATORS + LOGICAL_OPERATORS:
             self._type = Type.BINARY_OP
-        elif line == "*":
-            self._type = Type.STAR
-        elif line == "&":
-            self._type = Type.AMPERSAND
         elif line in TYPE_SPECIFIERS + DEFINED_TYPES:
             self._type = Type.TYPE
         elif line in ["--", "++"]:
             self._type = Type.CREMENT
-        elif line == Terminals.KW_EXTERN:
-            self._type = Type.EXTERN
-        elif line == Terminals.KW_BREAK:
-            self._type = Type.BREAK
-        elif line == Terminals.KW_FOR:
-            self._type = Type.FOR
-        elif line == Terminals.KW_DO:
-            self._type = Type.DO
-        elif line == Terminals.KW_WHILE:
-            self._type = Type.WHILE
-        elif line == Terminals.KW_SWITCH:
-            self._type = Type.SWITCH
-        elif line == Terminals.KW_CASE:
-            self._type = Type.CASE
-        elif line == Terminals.KW_DEFAULT:
-            self._type = Type.DEFAULT
         elif line in STRUCT_UNION:
             self._type = Type.STRUCT
-        elif line == Terminals.KW_CONTINUE:
-            self._type = Type.BREAK #since they're equivalent for us
-        elif line == "typedef":
-            self._type = Type.TYPEDEF
         elif line in TYPE_QUALIFIERS + STORAGE_CLASS:
             self._type = Type.IGNORE
-        elif line == Terminals.KW_INLINE:
-            self._type = Type.IGNORE
-        elif line == Terminals.KW_RETURN:
-            self._type = Type.RETURN
         elif line[0] == '"' or line[0] == "'" or line[0].isdigit():
             self._type = Type.CONSTANT
-        elif line == "[":
-            self._type = Type.LSQUARE
-        elif line == "]":
-            self._type = Type.RSQUARE
-        elif line == "\\":
-            self._type = Type.LINE_CONT
-        elif line == Terminals.KW_SIZEOF:
-            self._type = Type.SIZEOF
-        elif line == "__attribute__":
-            self._type = Type.ATTRIBUTE
-        elif line == "enum":
-            self._type = Type.ENUM
         else:
             #d(["finalise() could not match type for", self])
             self._type = Type.UNKNOWN #variables and externally defined types
@@ -701,19 +665,16 @@ class Styler(object):
         self.comments = tokeniser.comment_lines
         #scan for overlong lines
         lnum = 1
-        longs = 0
         f = open(filename, "r")
         for line in f:
             line = line.expandtabs(8)
             if len(line) > MAX_LINE_LENGTH:
-                longs += 1
                 self.errors.line_length(lnum, len(line))
             lnum += 1
         f.close()
         try:
             self.current_token = self.tokens[self.position]
             self.last_real_token = Word()
-            self.last_real_token._type = Type.ERROR_TYPE
             while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
                 d(["pre-process: skipping newline/comment", self.current_token])
                 if self.current_type() == Type.COMMENT:
