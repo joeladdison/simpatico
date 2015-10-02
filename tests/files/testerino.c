@@ -35,9 +35,9 @@ volatile unsigned char vuc; /* not a good name since it's entirely the type */
 /* this is testing the #include "dummy" correctly checks type */
 RidiculousIntType heresAnotherGlobal = 0b01010; // a GCC extension
 
-typedef struct Struct {
+typedef struct SimpleStructType {
     char contents;
-} Struct; // not really wise
+} SimpleStructType; // not really wise
 
 /* these next lines are madness */
 #ifndef THING_THAT_DOES_NOT_EXIST
@@ -55,7 +55,7 @@ typedef struct Struct {
 #endif
 
 struct Nested {
-    Struct s;
+    SimpleStructType s;
     struct Nested *n;
 } __attribute__ ((aligned)); 
 /* don't touch __attribute__ unless you really know what you're doing,
@@ -79,6 +79,9 @@ enum EnumTest { // this is legit
     JANE,
     MARY
 };
+
+//just a simple array of enums because it broke at one point
+enum EnumTest enums[4];
 
 struct NamedEnumContainer {
     enum EnumTest member;
@@ -114,7 +117,7 @@ struct StillAwkward {
 
 /* commented global */
 int global = 1;
-char globalChar = '\0'; /*also commented*/
+char anotherGlobal = '\0'; /*also commented*/
 
 /* commented function */
 *func_a(char *str, int i) {
@@ -139,7 +142,7 @@ void proto(const int * const param) {
 weirdGlobal;
 
 /* here's an array of function pointers */
-int (*funcArray[3])(int, int) = {NULL, NULL, NULL};
+int (*functions[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
 int *(*func_b(void))(char *, int) {
@@ -157,16 +160,16 @@ int *(*func_b(void))(char *, int) {
 
 /* commented function (takes function pointer as an arg) */
 /* the pointer is actually: int * (*) (char *, int) */
-int func_c(int (*funcPtr(char *, int)), int i)
+int func_c(int (*dummyFunc(char *, int)), int i)
 { // linebreaks before opening braces with functions are A-OK
-    return *(funcPtr("test", i));
+    return *(dummyFunc("test", i));
 }
 
 /* alternate form of function pointer as an arg */
 /* the pointer is actually: int (*) (char *, int) */
-int func_d(int (*funcPtr)(char *, int), int i)
+int func_d(int (*dummyFunc)(char *, int), int i)
 {
-    return (*funcPtr)("test", i);
+    return (*dummyFunc)("test", i);
 }
 
 
@@ -280,7 +283,7 @@ void test_misc(int a, int b, int *e) {
 }
 
 /*another func due to the length of main*/
-int struct_test(int f, Struct *p) {
+int struct_test(int f, SimpleStructType *p) {
     if(p->contents % 2 == 0) {
         a = 'O';
     } else if(p->contents % 2 != 0) {
@@ -305,14 +308,14 @@ int main(int argc, char **argv) {
     int f = sizeof e, **g = e;
     f = sizeof(e);
     f = sizeof(awkward.yesReally);
-    Struct s;
+    SimpleStructType s;
     (&s)->contents = 'a';
     s.contents = 'b';
     struct Nested t = {.s = s, .n = NULL};
 #define INIT_NESTED(x) {.s = s, .n = (x)}
     struct Nested u = INIT_NESTED(NULL);
 #undef INIT_NESTED
-    Struct *p = &s;
+    SimpleStructType *p = &s;
     d[0] = f;
     /*//double comments are fun
     these next lines are pointless

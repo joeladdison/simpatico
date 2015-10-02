@@ -1451,6 +1451,7 @@ class Styler(object):
                     self.check_whitespace(1, found)
                     self.check_naming(self.current_token, Errors.VARIABLE)
                     self.match(Type.UNKNOWN)
+            self.check_post_identifier()
         d(["check_enum() exited", self.current_token])
 
     def check_typedef(self):
