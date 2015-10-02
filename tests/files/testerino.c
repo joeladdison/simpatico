@@ -54,6 +54,9 @@ typedef struct SimpleStructType {
     //don't do anything
 #endif
 
+//test a function pointer type with variadic args
+typedef int (FuncPtrWithVarArgs)(void *this, const char *format, ...); 
+
 struct Nested {
     SimpleStructType s;
     struct Nested *n;
@@ -284,6 +287,7 @@ void test_misc(int a, int b, int *e) {
 
 /*another func due to the length of main*/
 int struct_test(int f, SimpleStructType *p) {
+    char a = f % 256;
     if(p->contents % 2 == 0) {
         a = 'O';
     } else if(p->contents % 2 != 0) {

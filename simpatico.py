@@ -953,7 +953,15 @@ class Styler(object):
             raise RuntimeError("%s:%d:'%s'"%(self.filename, line, identifier)+\
                     "is an unknown type, are you missing a dependency?")
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
-                Type.LPAREN, Type.ENUM, Type.STAR]
+                Type.LPAREN, Type.ENUM, Type.STAR, Type.STRUCT_OP]
+        if self.current_type() == Type.STRUCT_OP:
+            #ellipsis or variadic args (...)
+            for i in range(3):
+                self.match(Type.STRUCT_OP)
+                self.check_whitespace(0)
+            d(["match_type(): exiting",
+                    " early return due to finding varags (...)"])
+            return
         if self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT]:
             old = self.current_type()
             self.match()
