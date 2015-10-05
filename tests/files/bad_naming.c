@@ -11,11 +11,11 @@
 
 typedef struct bobStruct { /* violation */
     int thing;
-} GoodStruct;
+} GoodStructName;
 
 typedef struct Thing {
     int thing;
-} badStruct; /* violation */
+} badStructName; /* violation */
 
 int a, B; /* violation */
 char a_char; /* violation */

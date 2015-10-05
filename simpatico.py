@@ -426,7 +426,7 @@ class Tokeniser(object):
 class Errors(object):
     """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
-            DEFINE, MISSING, CLOSING, FILES) = range(12)
+            DEFINE, MISSING, CLOSING, FILES, HUNGARIAN) = range(13)
     def __init__(self, writing_to_file = False):
         self.naming_d = {}
         self.whitespace_d = {}
@@ -439,7 +439,8 @@ class Errors(object):
         self.total = 0
         self.writing_to_file = writing_to_file
         self.infracted_names = {Errors.TYPE:{}, Errors.FUNCTION:{},
-                Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{}}
+                Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{},
+                Errors.HUNGARIAN:{}}
 
     def naming(self, token, name_type):
         msg = "WHOOPS"
@@ -457,6 +458,8 @@ class Errors(object):
                 msg = " misnamed, #defines should be NAMED_LIKE_THIS"
             elif name_type == Errors.VARIABLE:
                 msg = " misnamed, variables should be namedLikeThis"
+            elif name_type == Errors.HUNGARIAN:
+                msg = " misnamed, hungarian notation is not to be used"
             else:
                 raise RuntimeError("Unknown naming violation type")
             name = token.get_string()
@@ -1253,7 +1256,13 @@ class Styler(object):
                 self.errors.naming(token, name_type)
             return
         name = token.line
+        lower = name.lower()
         if name_type in [Errors.VARIABLE, Errors.GLOBALS]:
+            for suffix in ["str", "char", "ptr", "array", "pointer"]:
+                if lower.endswith(suffix) and lower != suffix:
+                    d(["naming violation for hungarian variable:", name])
+                    self.errors.naming(token, Errors.HUNGARIAN)
+                    return
             if "_" in name or name[0].isupper():
                 d(["naming violation for variable:", name])
                 self.errors.naming(token, Errors.VARIABLE)
@@ -1269,6 +1278,9 @@ class Styler(object):
                     break
             self.check_comment(token, name_type)
         elif name_type == Errors.TYPE:
+            if lower.endswith("struct"):
+                d(["naming violation for hungarian type:", name])
+                self.errors.naming(token, Errors.HUNGARIAN)
             if "_" in name or not name[0].isupper() or name.upper() == name:
                 d(["naming violation for type:", name])
                 self.errors.naming(token, name_type)

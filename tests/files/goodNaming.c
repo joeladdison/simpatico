@@ -1,12 +1,12 @@
-typedef struct BobStruct {
+typedef struct BobThing {
     int thing;
-} BobStruct;
+} BobThing;
 
 int a;
-char aChar;
+char b;
 
 void function_stuff(void) {
 }
 
-void struct_var(BobStruct bobStruct) {
+void struct_var(BobThing bob) {
 }
