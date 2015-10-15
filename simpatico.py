@@ -18,6 +18,8 @@ LINE_CONTINUATION_SIZE = 8
 MAX_FUNCTION_LENGTH = 50
 MAX_LINE_LENGTH = 80 #include newlines
 
+OUTPUT_REPORT_LIMIT_PER_CATEGORY_PER_FILE = 15
+
 ALLOW_ZERO = True
 (NO_NEWLINE, MAY_NEWLINE, MUST_NEWLINE) = range(3)
 IS_TYPEDEF = True
@@ -441,8 +443,17 @@ class Errors(object):
         self.overall_d = {}
         self.indent_d = {}
         self.notes_d = {}
+        self.error_types = ["naming", "whitespace", "comments", "braces", 
+                "line_length", "overall", "indent", "notes"]
+        self.error_dicts = [self.naming_d, self.whitespace_d, self.comments_d,
+                self.braces_d, self.line_length_d, self.overall_d,
+                self.indent_d, self.notes_d]
         self.total = 0
         self.writing_to_file = writing_to_file
+        self.reported_line_counts = {}
+        self.error_type_mapping = dict(zip(self.error_types, self.error_dicts))
+        for error_type in self.error_types:
+            self.reported_line_counts[error_type] = 0
         self.infracted_names = {Errors.TYPE:{}, Errors.FUNCTION:{},
                 Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{},
                 Errors.HUNGARIAN:{}}
@@ -597,19 +608,27 @@ class Errors(object):
 
     def get(self, line_number):
         result = []
-        for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.overall_d,
-                self.comments_d, self.indent_d, self.notes_d]:
-            e = error_type.get(line_number, [])
+        for error_type in self.error_types:
+            errors = self.error_type_mapping[error_type]
+            e = errors.get(line_number, [])
             if e:
-                result.extend(e)
-                result.append("\n")
+                current = self.reported_line_counts[error_type] + 1
+                if self.writing_to_file:
+                    if current == OUTPUT_REPORT_LIMIT_PER_CATEGORY_PER_FILE \
+                            and len(errors) > current:
+                        result.extend(e)
+                        result.append("\n[NOTE] More violations of this category may exist in this file\n")
+                    elif current < OUTPUT_REPORT_LIMIT_PER_CATEGORY_PER_FILE:
+                        result.extend(e)
+                        result.append("\n")
+                else:
+                    result.extend(e)
+                    result.append("\n")
+                self.reported_line_counts[error_type] = current
         return result
 
     def print_lines(self):
-        for error_type in [self.braces_d, self.whitespace_d,
-                self.line_length_d, self.naming_d, self.comments_d,
-                self.indent_d, self.notes_d]:
+        for error_type in self.error_dicts:
             for key in sorted(error_type.keys()):
                 print("line", key, ":", error_type[key])
         for key in sorted(self.overall_d.keys()):
