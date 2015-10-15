@@ -722,7 +722,7 @@ class Styler(object):
                 traceback.print_exc()
             line_number = self.current_token.line_number
             raise RuntimeError(e.message + "\n\033[1mStyling " + filename + \
-                    "failed on line %d\033[0m\n"%line_number)
+                    " failed on line %d\033[0m\n"%line_number)
         #before we're done with the file, check the filename style
         if "/" in filename:
             filename = filename[filename.rfind("/") + 1:]
@@ -803,9 +803,10 @@ class Styler(object):
         d(["matching", old])
         if old.inner_tokens: #i.e. if this token was #defined as something
             if req_type != Type.ANY and old.get_type() != req_type:
-                raise RuntimeError(("Parse failure: {0} expected to be of"+\
+                raise RuntimeError(("Parse failure: {3}:{0} expected to be of"+\
                     " type {2} but was {1}").format(str(old),
-                    TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type]))
+                    TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type]),
+                    self.filename)
             if old.inner_position < len(old.inner_tokens) - 1:
                 old.inner_position += 1
                 old = old.inner_tokens[old.inner_position - 1]
@@ -823,9 +824,10 @@ class Styler(object):
 
         # ensure we're matching what's expected
         if req_type != Type.ANY and old.get_type() != req_type:
-            raise RuntimeError(("Parse failure: {0} expected to be of"+\
+            raise RuntimeError(("Parse failure: {3}:{0} expected to be of"+\
                 " type {2} but was {1}").format(str(old),
-                TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type]))
+                TYPE_STRINGS[old.get_type()], TYPE_STRINGS[req_type],
+                self.filename))
         # check pre-token newlines if {}
         elif old.get_type() in [Type.LBRACE, Type.RBRACE]:
             # previous was a newline but shouldn't have been
