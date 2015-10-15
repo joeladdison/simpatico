@@ -1280,7 +1280,7 @@ class Styler(object):
     def check_naming(self, token, name_type = Errors.VARIABLE):
         if name_type == Errors.FILES:
             name = token
-            if "_" in name:
+            if "_" in name or name[0].isupper():
                 d(["naming violation for filename:", name])
                 self.errors.naming(token, name_type)
             return
