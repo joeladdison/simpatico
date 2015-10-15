@@ -37,6 +37,11 @@ STRUCT_UNION = ["struct", "union"]
 STORAGE_CLASS = ["register", "static", "extern", "auto", "typedef"]
 TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
 
+class NoMoreTokensError(Exception):
+    def __init__(self, message):
+        super(NoMoreTokensError, self).__init__(message)
+        
+
 class Terminals(object):
     KW_AUTO = "auto"
     KW_BREAK = "break"
@@ -682,12 +687,14 @@ class Styler(object):
                 d(["pre-process: skipping newline/comment", self.current_token])
                 if self.current_type() == Type.COMMENT:
                     self.check_whitespace()
-                self.position += 1
-                self.current_token = self.tokens[self.position]
+                self.move_token_cursor(self.position + 1)
             self.process_globals()
-        except IndexError:
+        except NoMoreTokensError:
             #that'd be us finished
-            pass
+            if self.position < len(self.tokens) - 1:
+                raise RuntimeError("Error accessing tokens that should exist")
+            else:
+                d(["file complete"])
         except (RuntimeError, AssertionError) as e:
             if self.quiet:
                 raise e
@@ -720,6 +727,13 @@ class Styler(object):
 
         if not self.quiet:
             self.errors.print_lines()
+
+    def move_token_cursor(self, position):
+        try:
+            self.position = position
+            self.current_token = self.tokens[self.position]
+        except IndexError as e:
+            raise NoMoreTokensError(e.message)
 
     def current_type(self):
         return self.current_token.get_type()
@@ -777,12 +791,10 @@ class Styler(object):
                 old.inner_position += 1
                 old = old.inner_tokens[old.inner_position - 1]
             else:
-                self.position += 1
-                self.current_token = self.tokens[self.position]
+                self.move_token_cursor(self.position + 1)
                 while self.current_token.get_type() in [Type.NEWLINE,
                         Type.COMMENT, Type.LINE_CONT]:
-                    self.position += 1
-                    self.current_token = self.tokens[self.position]
+                    self.move_token_cursor(self.position + 1)
 
                 #special case for macros
                 if old.is_macro():
@@ -818,8 +830,7 @@ class Styler(object):
                 Type.LINE_CONT]:
             if self.current_type() == Type.COMMENT:
                 self.comments[self.current_token.line_number] = True
-            self.position += 1
-            self.current_token = self.tokens[self.position]
+            self.move_token_cursor(self.position + 1)
 
         # check for extra post-token newlines
         if post_newline == NO_NEWLINE and self.last_real_token.line_number \
@@ -912,7 +923,7 @@ class Styler(object):
                 elif self.tokens[i].get_type() == Type.LBRACE:
                     depth += 1
         except IndexError as e:
-            pass
+            d(["ignoring IndexError while looking for matching else"])
         d(["has matching_else: ending at ", self.tokens[self.position]])
         return False
 
@@ -935,17 +946,14 @@ class Styler(object):
                     self.current_type() == Type.NEWLINE])
             if self.current_type() == Type.LINE_CONT:
                 #push it past the next newline
-                self.position += 2
-                self.current_token = self.tokens[self.position]
+                self.move_token_cursor(self.position + 2)
                 self.check_whitespace(LINE_CONTINUATION_SIZE)
                 continue
             self.check_whitespace(1, ALLOW_ZERO)
-            self.position += 1
-            self.current_token = self.tokens[self.position]
+            self.move_token_cursor(self.position + 1)
         #but leave it on a meaningful token
         while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
-            self.position += 1
-            self.current_token = self.tokens[self.position]
+            self.move_token_cursor(self.position + 1)
 
     def match_type(self, is_typedef=False):
         d(["match_type(): entered", self.current_token])
