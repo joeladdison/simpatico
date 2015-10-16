@@ -122,3 +122,8 @@ int main(){ //error
     }
 }
 
+int proto (); //error, space between identifier and parentheses
+
+int proto () { //error, space between identifier and parentheses
+    return 0;
+}

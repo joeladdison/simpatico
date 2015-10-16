@@ -1,4 +1,4 @@
-/* this file contains no violations of any kind,
+/* this file contains no quantitative violations of any kind,
  * however, some lines will cause compiler warnings and the comments would
  * normally require content
  */
@@ -25,8 +25,8 @@
         "whitespace in the middle"
 #define MACRO(x, ...) fprintf(stderr, x, ...)
 
-/* the beautiful thing that it is */
-extern int errno;
+extern int POINTLESS_INT;
+/*the above didn't need comments or to pass naming since extern*/
 
 /* these two vars are for testing type-qualifiers */
 static long int stat = 0532L;
@@ -34,6 +34,9 @@ volatile unsigned char vuc; /* not a good name since it's entirely the type */
 
 /* this is testing the #include "dummy" correctly checks type */
 RidiculousIntType heresAnotherGlobal = 0b01010; // a GCC extension
+
+/* testing that pointer binding works correctly */
+/*char (*pointerToArrays)[2];*/
 
 typedef struct SimpleStructType {
     char contents;
@@ -55,7 +58,7 @@ typedef struct SimpleStructType {
 #endif
 
 //test a function pointer type with variadic args
-typedef int (FuncPtrWithVarArgs)(void *this, const char *format, ...); 
+typedef int (*FuncPtrWithVarArgs)(void *this, const char *format, ...); 
 
 struct Nested {
     SimpleStructType s;
@@ -118,6 +121,8 @@ struct StillAwkward {
     int i;
 } *thisIsAnArrayOfStillAwkward, absolutely; /* not a fan of this at allll */
 
+void proto(const int * const param);
+
 /* commented global */
 int global = 1;
 char anotherGlobal = '\0'; /*also commented*/
@@ -128,7 +133,6 @@ char anotherGlobal = '\0'; /*also commented*/
     return (int *) val;
 }
 
-void proto(const int * const param);
 
 /* fun with 'arry */
 void arry(int potter[]) {
@@ -149,14 +153,14 @@ int (*functions[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
 int *(*func_b(void))(char *, int) {
-    int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
+    int a = weirdGlobal++ +weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }
 
 /* func_b, but this time missing args */
 *(*func_b_mk2())(char *, int) {
-    int a = weirdGlobal+++weirdGlobal++; /* undefined behaviour*/
+    int a = weirdGlobal+ ++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }

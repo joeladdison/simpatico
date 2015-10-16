@@ -2281,7 +2281,7 @@ class Styler(object):
                 d(["decl is a func returning func pointer"])
             else:
                 d(["decl is a func or prototype", name])
-                self.check_whitespace(1, ALLOW_ZERO)
+                self.check_whitespace(0)
                 #check for appropriate space between this and the last global
                 #space token
                 current_line = self.current_token.line_number

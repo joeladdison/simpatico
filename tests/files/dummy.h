@@ -15,4 +15,7 @@ int (*sillyGlobalFunctionPointerA)(int);
 //using the typedef'd func pointer type
 FunctionPointerTypeA sillyGlobalFunctionPointerB;
 
+//a ridiculous int global to test externs aren't checked for naming
+int POINTLESS_INT;
+
 #endif
