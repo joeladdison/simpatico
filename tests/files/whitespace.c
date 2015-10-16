@@ -127,3 +127,8 @@ int proto (); //error, space between identifier and parentheses
 int proto () { //error, space between identifier and parentheses
     return 0;
 }
+
+struct PointerSpace {
+    struct PointerSpace *first;
+    struct PointerSpace* second; //error, inconsistent pointer spacing
+}

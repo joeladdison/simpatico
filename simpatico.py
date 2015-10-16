@@ -1409,8 +1409,9 @@ class Styler(object):
             if self.current_type() != Type.UNKNOWN:
                 #things get weird if it's not a declaration
                 d(["WARNING: skipping pointer space checks, not a declaration"])
-            elif complicated_pointer or before != Type.TYPE:
+            elif complicated_pointer or before not in [Type.TYPE, Type.UNKNOWN]:
                 #other complicated things like: int *(*funcpointer)
+                #but not things like: struct Bob *thing
                 d(["WARNING: skipping pointer space checks, too complicated"])
             elif space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
