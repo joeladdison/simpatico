@@ -2100,8 +2100,6 @@ class Styler(object):
         d(["check_block(): exited", self.current_token, "\n"])
 
     def check_define(self):
-#TODO mark it to be manually checked
-# since we can't tell here what they're doing
         self.check_whitespace(1)
         first = self.current_token
         first.inner_tokens = []
@@ -2136,16 +2134,13 @@ class Styler(object):
             while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
                 if self.current_type() == Type.LINE_CONT:
                     while self.current_type() != Type.NEWLINE:
-                        self.position += 1
-                        self.current_token = self.tokens[self.position]
-                    self.position += 1
-                    self.current_token = self.tokens[self.position]
+                        self.move_token_cursor(self.position + 1)
+                    self.move_token_cursor(self.position + 1)
                 if self.current_token.inner_tokens:
                     tokens.extend(self.current_token.inner_tokens)
                 else:
                     tokens.append(self.current_token)
-                self.position += 1
-                self.current_token = self.tokens[self.position]
+                self.move_token_cursor(self.position + 1)
                 self.check_whitespace(1, ALLOW_ZERO)
             self.match()
             #due to how we expand out a #define, the args aren't considered
@@ -2161,19 +2156,16 @@ class Styler(object):
             self.check_whitespace(1)
             tokens = []
             while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
+                self.check_whitespace(1, ALLOW_ZERO)
                 if self.current_type() == Type.LINE_CONT:
                     while self.current_type() != Type.NEWLINE:
-                        self.position += 1
-                        self.current_token = self.tokens[self.position]
-                    self.position += 1
-                    self.current_token = self.tokens[self.position]
+                        self.move_token_cursor(self.position + 1)
+                    self.move_token_cursor(self.position + 1)
                 if self.current_token.inner_tokens:
                     tokens.extend(self.current_token.inner_tokens)
                 else:
                     tokens.append(self.current_token)
-                self.position += 1
-                self.current_token = self.tokens[self.position]
-                self.check_whitespace(1, ALLOW_ZERO)
+                self.move_token_cursor(self.position + 1)
             self.match()
             if first._type == Type.UNKNOWN: #direct access deliberate
                 #mark all instances of this definition as such
