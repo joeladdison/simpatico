@@ -843,8 +843,7 @@ class Styler(object):
                 if pre_newline == MUST_NEWLINE:
                     self.errors.braces(self.current_token, Errors.RUNON)
         #update
-        self.position += 1
-        self.current_token = self.tokens[self.position] #deliberately unsafe
+        self.move_token_cursor(self.position + 1)
 
         # clear the trash
         while self.current_type() in [Type.COMMENT, Type.NEWLINE,
@@ -1375,8 +1374,6 @@ class Styler(object):
 
     def check_attribute(self):
         if self.current_type() == Type.ATTRIBUTE:
-            #ruh roh
-            #TODO better manual checking required
             self.check_whitespace(1)
             self.match(Type.ATTRIBUTE)
             self.check_whitespace(1, ALLOW_ZERO)
