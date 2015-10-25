@@ -1913,41 +1913,42 @@ class Styler(object):
 
     def check_post_identifier(self):
         d(["check_post_identifier(): entered", self.current_token])
-        # ++ or --
-        if self.current_type() == Type.CREMENT:
-            self.check_whitespace(0)
-            self.match(Type.CREMENT)
-        # func params
-        elif self.current_type() == Type.LPAREN:
-            self.check_whitespace(0)
-            self.match(Type.LPAREN)
-            self.check_whitespace(0)
-            if self.current_type() != Type.RPAREN:
-                self.check_expression()
+        while self.current_type() in [Type.CREMENT, Type.LPAREN, Type.LSQUARE]:
+            # ++ or --
+            if self.current_type() == Type.CREMENT:
                 self.check_whitespace(0)
-                #multiple
-                while self.current_type() == Type.COMMA:
-                    self.match(Type.COMMA)
-                    self.check_whitespace(1)
+                self.match(Type.CREMENT)
+            # func params
+            elif self.current_type() == Type.LPAREN:
+                self.check_whitespace(0)
+                self.match(Type.LPAREN)
+                self.check_whitespace(0)
+                if self.current_type() != Type.RPAREN:
                     self.check_expression()
                     self.check_whitespace(0)
-            self.match(Type.RPAREN)
-            #could be a callable, etc
-            self.check_post_identifier()
-        #indexing
-        elif self.current_type() == Type.LSQUARE:
-            #can be chained
-            while self.current_type() == Type.LSQUARE:
-                self.check_whitespace(0)
-                self.match(Type.LSQUARE)
-                self.check_whitespace(0)
-                if self.current_type() != Type.RSQUARE:
-                    self.check_expression()
+                    #multiple
+                    while self.current_type() == Type.COMMA:
+                        self.match(Type.COMMA)
+                        self.check_whitespace(1)
+                        self.check_expression()
+                        self.check_whitespace(0)
+                self.match(Type.RPAREN)
+                #could be a callable, etc
+                self.check_post_identifier()
+            #indexing
+            elif self.current_type() == Type.LSQUARE:
+                #can be chained
+                while self.current_type() == Type.LSQUARE:
                     self.check_whitespace(0)
-                self.match(Type.RSQUARE)
-            #clear out any post-post-identifiers
-            self.check_post_identifier()
-        d(["check_post_identifier(): exited", self.current_token])
+                    self.match(Type.LSQUARE)
+                    self.check_whitespace(0)
+                    if self.current_type() != Type.RSQUARE:
+                        self.check_expression()
+                        self.check_whitespace(0)
+                    self.match(Type.RSQUARE)
+                #clear out any post-post-identifiers
+                self.check_post_identifier()
+            d(["check_post_identifier(): exited", self.current_token])
 
     def check_expression(self, return_on_comma = False):
         d(["check_exp(): entered, comma shortcutting=", return_on_comma,
