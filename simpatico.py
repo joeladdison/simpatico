@@ -529,6 +529,7 @@ class Errors(object):
                 " not a mix"])
 
     def whitespace_between_functions(self, token):
+        d(["found whitespace error, whitespace between functions", token])
         self.total += 1
         existing = self.whitespace_d.get(token.line_number, "")
         addline = ""
@@ -629,6 +630,8 @@ class Errors(object):
 
     def print_lines(self):
         for error_type in self.error_dicts:
+            if error_type == self.overall_d:
+                continue
             for key in sorted(error_type.keys()):
                 print("line", key, ":", error_type[key])
         for key in sorted(self.overall_d.keys()):
@@ -796,7 +799,8 @@ class Styler(object):
             pre_newline = NO_NEWLINE):
         #store interesting parts
         old = self.current_token
-        self.last_real_token = self.current_token
+        if self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
+            self.last_real_token = self.current_token
         if STOP_ON_MISSED_WHITESPACE and old.get_type() not in [Type.NEWLINE,
                 Type.COMMENT]:
             assert STOP_ON_MISSED_WHITESPACE and old.whitespace_checked != 0
@@ -853,23 +857,23 @@ class Styler(object):
             self.move_token_cursor(self.position + 1)
 
         # check for extra post-token newlines
-        if post_newline == NO_NEWLINE and self.last_real_token.line_number \
+        if post_newline == NO_NEWLINE and old.line_number \
                 != self.current_token.line_number:
             if old.get_type() == Type.RBRACE:
                 self.errors.braces(old, Errors.ELSE)
             if old.get_type() not in [Type.SEMICOLON, Type.LBRACE]:
                 self.line_continuation = True
         # check for missing post-token newlines
-        if post_newline == MUST_NEWLINE and self.last_real_token.line_number \
+        if post_newline == MUST_NEWLINE and old.line_number \
                 == self.current_token.line_number:
             if old.get_type() == Type.SEMICOLON:
                 self.errors.missing_newline(old)
             elif old.get_type() not in [Type.LBRACE, Type.RBRACE]:
                 pass
             elif self.tokens[self.position-2].get_type() == Type.ELSE:
-                self.errors.braces(self.last_real_token, Errors.ELSE)
+                self.errors.braces(old, Errors.ELSE)
             else:
-                self.errors.braces(self.last_real_token, Errors.RUNON)
+                self.errors.braces(old, Errors.RUNON)
 
     def check_comment(self, token, declType):
         if declType == Errors.FUNCTION:
@@ -1253,9 +1257,10 @@ class Styler(object):
                         token.inner_tokens = defines[key]
         #define
         elif self.current_type() == Type.DEFINE:
+            define_line = self.current_token.line_number
             self.match(Type.DEFINE, MAY_NEWLINE)
             #was it just an include guard?
-            if self.last_real_token.get_type() != Type.NEWLINE:
+            if self.current_token.line_number == define_line:
                 self.check_define()
 #TODO undefine
         elif self.current_type() in [Type.PREPROCESSOR, Type.IF, Type.ELSE]:
@@ -2145,8 +2150,10 @@ class Styler(object):
             #part of the token
             self.found_defines[first.line] = tokens
             #mark all instances of this macro as such
-            for token in self.tokens[self.position:]:
-                if token.line == first.line:
+            for n, token in enumerate(self.tokens[self.position:]):
+                #also requires paren for macro
+                if token.line == first.line \
+                        and self.tokens[n+1]._type == Type.LPAREN:
                     token.inner_tokens = tokens
                     token.mark_as_macro()
         else:
@@ -2278,10 +2285,12 @@ class Styler(object):
                 current_line = self.current_token.line_number
                 #gap = num lines between the two, exclusive
                 gap = current_line - self.last_global_line_number - 1
-                for i in range(self.last_global_line_number, current_line):
+                d(["initial function gap of", gap, "(%d-%d)"%(current_line, self.last_global_line_number)])
+                for i in range(self.last_global_line_number + 1, current_line):
                     if self.comments.get(i):
                         gap -= 1
                 if gap < 1 or gap > 2:
+                    d(["bad vertical whitespace, gap of", gap])
                     has_bad_vertical_whitespace = True
             param_names = []
             self.match(Type.LPAREN)
@@ -2320,8 +2329,12 @@ class Styler(object):
                     #strip array type indicators
                     self.check_post_identifier()
             self.check_whitespace(0)
+            paren_line = self.current_token.line_number
             self.match(Type.RPAREN, MAY_NEWLINE)
             if self.current_type() == Type.LBRACE:
+                if self.filename.endswith(".h"):
+                    self.errors.overall(self.current_token.line_number,
+                            "Headers should not contain function definitions")
                 #violate vertical whitespace if noted from earlier
                 if has_bad_vertical_whitespace:
                     self.errors.whitespace_between_functions(self.current_token)
@@ -2331,8 +2344,7 @@ class Styler(object):
                 for param in param_names:
                     self.check_naming(param, Errors.VARIABLE)
                 start_line = self.current_token.line_number
-                if self.last_real_token.line_number != \
-                        self.current_token.line_number:
+                if paren_line != self.current_token.line_number:
                     self.check_whitespace()
                 else:
                     self.check_whitespace(1)
