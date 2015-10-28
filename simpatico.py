@@ -703,7 +703,7 @@ class Styler(object):
             lnum += 1
         f.close()
         try:
-            self.current_token = self.tokens[self.position]
+            self.move_token_cursor(self.position)
             self.last_real_token = Word()
             while self.current_type() in [Type.NEWLINE, Type.COMMENT]:
                 d(["pre-process: skipping newline/comment", self.current_token])
