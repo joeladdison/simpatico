@@ -3,7 +3,8 @@ from tests import TestSimpatico
 class TestIndents(TestSimpatico):
 
     def test_indents(self):
-        expected_error_lines = [5, 8, 12, 16, 21, 26, 37, 38, 40, 50, 53, 58]
+        expected_error_lines = [5, 8, 12, 16, 21, 26, 37, 38, 40, 50, 53, 58,
+                72,75]
 
         f = 'tests/files/indents.c'
         s = self.run_simpatico(f)

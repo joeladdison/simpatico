@@ -138,6 +138,13 @@ char anotherGlobal = '\0'; /*also commented*/
 void arry(int potter[]) {
     float f = 0.3f;
     potter[0] = (int) f;
+    char *inlined[] = {"yep", "this", "is".
+            "right"};
+    char *block[] = {
+        "this",
+        "is",
+        "also"
+    };
 }
 
 /* the definition of that prototype */
@@ -153,14 +160,14 @@ int (*functions[3])(int, int) = {NULL, NULL, NULL};
 
 /* commented function (returns function pointer)*/
 int *(*func_b(void))(char *, int) {
-    int a = weirdGlobal++ +weirdGlobal++; /* undefined behaviour*/
+    int a = weirdGlobal++ + weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }
 
 /* func_b, but this time missing args */
 *(*func_b_mk2())(char *, int) {
-    int a = weirdGlobal+ ++weirdGlobal++; /* undefined behaviour*/
+    int a = weirdGlobal + ++weirdGlobal++; /* undefined behaviour*/
     a++;
     return &func_a;
 }

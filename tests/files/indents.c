@@ -57,3 +57,20 @@ enum Another {
             LINE_CONTINUATION,
     AND_BAD_BLOCK       //error
 };
+
+/* block style and inline and things that don't match inbetween */
+void test_array_styles() {
+    char *inlined[] = {"yep", "this", "is",
+            "right"};
+    char *block[] = {
+        "this",
+        "is",
+        "also"
+    };
+    
+    char *inline_bad[] = {"this", "is",
+        "bad"}; //error, line continuation
+    char *block_bad[] = {
+        "this",
+        "is", "too"}; //error, was block, ended inline
+}

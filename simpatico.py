@@ -864,7 +864,7 @@ class Styler(object):
             if old.get_type() not in [Type.SEMICOLON, Type.LBRACE]:
                 self.line_continuation = True
         # check for missing post-token newlines
-        if post_newline == MUST_NEWLINE and old.line_number \
+        elif post_newline == MUST_NEWLINE and old.line_number \
                 == self.current_token.line_number:
             if old.get_type() == Type.SEMICOLON:
                 self.errors.missing_newline(old)
@@ -2193,8 +2193,15 @@ class Styler(object):
             #assignment is to another variable or to a string
             self.check_expression()
             return
+        brace_line = self.current_token.line_number
         self.match(Type.LBRACE, MAY_NEWLINE)
-        self.check_whitespace(0)
+        block_style = self.current_token.line_number != brace_line
+        if block_style:
+            self.depth += 1
+            expected = -1 #block level indents rather than spaces
+        else:
+            expected = 0
+        self.check_whitespace(expected)
         #partial array init
         if self.current_type() == Type.LSQUARE:
             self.match(Type.LSQUARE)
@@ -2232,12 +2239,20 @@ class Styler(object):
                     self.check_array_assignment()
                 #possibly just membername = stuff
                 else:
-                    self.check_expression()
+                    self.check_expression(return_on_comma=True)
                 if self.current_type() == Type.COMMA:
                     self.check_whitespace(0)
-                    self.match(Type.COMMA)
-                    self.check_whitespace(1)
-        self.check_whitespace(0)
+                    if block_style:
+                        self.match(Type.COMMA, post_newline=MUST_NEWLINE)
+                        if self.line_continuation:
+                            self.line_continuation = False
+                        self.check_whitespace()
+                    else:
+                        self.match(Type.COMMA)
+                        self.check_whitespace(1)
+        if block_style:
+            self.depth -= 1
+        self.check_whitespace(expected)
         self.match(Type.RBRACE, MAY_NEWLINE, MAY_NEWLINE)
         d(["check_array_assignment() exited", self.current_token])
 

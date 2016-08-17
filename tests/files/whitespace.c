@@ -131,4 +131,16 @@ int proto () { //error, space between identifier and parentheses
 struct PointerSpace {
     struct PointerSpace *first;
     struct PointerSpace* second; //error, inconsistent pointer spacing
+};
+
+
+/* block style and inline and things that don't match inbetween */
+void test_array_styles() {
+    char *inlined[] = {"yep", "this", "is",
+            "right"};
+    char *block[] = {
+        "this",
+        "is",
+        "also"
+    };
 }
