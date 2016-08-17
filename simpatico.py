@@ -1681,6 +1681,56 @@ class Styler(object):
         self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
         d(["check_switch(): exited", self.current_token])
 
+    def check_partial_struct(self):
+        d(["check_partial_struct(): entered", self.current_token])
+        brace_line = self.current_token.line_number
+        self.match(Type.LBRACE)
+        block_style = brace_line != self.current_token.line_number
+        expected = 0
+        if block_style:
+            d(["block style declaration"])
+            expected = -1
+            self.depth += 1
+        self.check_whitespace(expected)
+        #if it's {.member = } style
+        if self.current_type() == Type.STRUCT_OP:
+            while self.current_type() == Type.STRUCT_OP: # .
+                self.match(Type.STRUCT_OP)
+                d(["next member", self.current_token])
+                self.check_whitespace(0)
+                self.match(Type.UNKNOWN)
+                self.check_whitespace(1)
+                self.match(Type.ASSIGNMENT)
+                self.check_whitespace(1)
+                self.check_expression(return_on_comma=True)
+                if self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
+                    if block_style:
+                        self.match(Type.COMMA, post_newline=MUST_NEWLINE)
+                        if self.line_continuation:
+                            self.line_continuation = False
+                        self.check_whitespace()
+                    else:
+                        self.match(Type.COMMA)
+                        self.check_whitespace(1)
+        #otherwise comma separated list of expressions
+        else:
+            while self.current_type() != Type.RBRACE:
+                self.check_whitespace(expected)
+                self.check_expression(return_on_comma=True)
+                if self.current_type() == Type.COMMA:
+                    self.check_whitespace(0)
+                    self.match(Type.COMMA)
+        d(["checking whitespace", self.current_token])
+        if block_style:
+            self.depth -= 1
+            self.check_whitespace()
+            self.match(Type.RBRACE, NO_NEWLINE, MUST_NEWLINE)
+        else:
+            self.check_whitespace(0)
+            self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
+        d(["check_partial_struct(): exited", self.current_token])
+
     def check_statement(self, allow_expressions = True):
         d(["check_statement(): entered", self.current_token])
         while self.current_type() == Type.IGNORE:
@@ -1734,32 +1784,7 @@ class Styler(object):
                     #awkward types of struct initialisers to deal with
                     if self.current_type() == Type.LBRACE:
                         d(["struct assignment {.x = ...} style"])
-                        self.match(Type.LBRACE)
-                        self.check_whitespace(0)
-                        #if it's {.member = } style
-                        if self.current_type() == Type.STRUCT_OP:
-                            while self.current_type() == Type.STRUCT_OP: # .
-                                self.match(Type.STRUCT_OP)
-                                d(["next member", self.current_token])
-                                self.check_whitespace(0)
-                                self.match(Type.UNKNOWN)
-                                self.check_whitespace(1)
-                                self.match(Type.ASSIGNMENT)
-                                self.check_whitespace(1)
-                                self.check_expression()
-                                self.check_whitespace(0)
-                                if self.current_type() == Type.COMMA:
-                                    self.match(Type.COMMA)
-                                    self.check_whitespace(1)
-                        #otherwise comma separated list of expressions
-                        else:
-                            while self.current_type() != Type.RBRACE:
-                                self.check_expression()
-                                self.check_whitespace(0)
-                                if self.current_type() == Type.COMMA:
-                                    self.match(Type.COMMA)
-                                    self.check_whitespace(1)
-                        self.match(Type.RBRACE, NO_NEWLINE, MAY_NEWLINE)
+                        self.check_partial_struct()
                     #otherwise it's just a normal expression
                     else:
                         self.check_expression()

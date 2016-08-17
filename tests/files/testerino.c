@@ -311,6 +311,20 @@ int struct_test(int f, SimpleStructType *p) {
     return f;
 }
 
+/* check partial struct inits */
+void partial() {
+    SimpleStructType s;
+    struct Nested t = {.s = s, .n = NULL};
+#define INIT_NESTED(x) {.s = s, .n = (x)}
+    struct Nested u = INIT_NESTED(NULL);
+#undef INIT_NESTED
+    struct Nested v = {
+        .s = s,
+        .n = NULL
+    };
+}
+
+
 /* heres a comment*/
 int main(int argc, char **argv) {
     int a = 1;
@@ -326,10 +340,6 @@ int main(int argc, char **argv) {
     SimpleStructType s;
     (&s)->contents = 'a';
     s.contents = 'b';
-    struct Nested t = {.s = s, .n = NULL};
-#define INIT_NESTED(x) {.s = s, .n = (x)}
-    struct Nested u = INIT_NESTED(NULL);
-#undef INIT_NESTED
     SimpleStructType *p = &s;
     d[0] = f;
     /*//double comments are fun
