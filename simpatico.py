@@ -17,6 +17,7 @@ INDENT_SIZE = 4
 LINE_CONTINUATION_SIZE = 8
 MAX_FUNCTION_LENGTH = 50
 MAX_LINE_LENGTH = 80 #include newlines
+GOTO_BANNED = True
 
 OUTPUT_REPORT_LIMIT_PER_CATEGORY_PER_FILE = 15
 
@@ -282,9 +283,9 @@ class Tokeniser(object):
         self.comment_lines = {}
         self.current_word_start = 1
         #well that was fun, now we should do some real work
-        f = open(filename, "r")
-        allllll_of_it = f.read().expandtabs(8).replace('\r', ' ')
-        f.close()
+        inf = open(filename, "r")
+        allllll_of_it = inf.read().expandtabs(8).replace('\r', ' ')
+        inf.close()
         self.tokenise(allllll_of_it)
 
     def end_word(self):
@@ -434,6 +435,7 @@ class Errors(object):
     """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
             DEFINE, MISSING, CLOSING, FILES, HUNGARIAN) = range(13)
+    (NAMING, WHITESPACE, COMMENTS, BRACES, LINE_LENGTH, OVERALL, INDENT) = range(7)
     def __init__(self, writing_to_file = False):
         self.naming_d = {}
         self.whitespace_d = {}
@@ -458,13 +460,17 @@ class Errors(object):
                 Errors.DEFINE:{}, Errors.VARIABLE:{}, Errors.FILES:{},
                 Errors.HUNGARIAN:{}}
 
+    def verify(self, message, line, position, category):
+        """A hook for future verification steps"""
+        return True
+
     def naming(self, token, name_type):
         msg = "WHOOPS"
         line_no = 1
         name = ""
         if name_type == Errors.FILES:
             msg = " misnamed, files should be namedLikeThis.c"
-            name = token
+            name = token.line
         else:
             if name_type == Errors.TYPE:
                 msg = " misnamed, types should be NamedLikeThis"
@@ -493,6 +499,9 @@ class Errors(object):
                 #skip violation output since it's being printed to terminal
                 return
         else:
+            if not self.verify(violation, line_no, token.get_position(),
+                    Errors.NAMING):
+                return
             self.total += 1
             self.infracted_names[name_type][name] = line_no
         category[line_no] = violation
@@ -501,53 +510,69 @@ class Errors(object):
         self.total += 1
         if self.whitespace_d.get(token.line_number):
             return
-        self.whitespace_d[token.line_number] = "".join([
-                "[WHITESPACE] '", token.line, "' at ",
+        msg = "".join(["[WHITESPACE] '", token.line, "' at ",
                 "position %d: statements must be followed by a newline" % \
                 (token.get_position())])
+        if not self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            return
+        self.whitespace_d[token.line_number] = msg
 
     def whitespace_surrounding_pointer(self, token):
         self.total += 1
         if self.whitespace_d.get(token.line_number):
             return
-        self.whitespace_d[token.line_number] = "".join([
-                "[WHITESPACE] Pointers should be a *b or a* b, not a * b"])
+        msg = "".join(["[WHITESPACE] Pointers should be a *b or a* b, not a * b"])
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            self.whitespace_d[token.line_number] = msg
 
     def whitespace_cuddled_pointer(self, token):
         self.total += 1
         if self.whitespace_d.get(token.line_number):
             return
-        self.whitespace_d[token.line_number] = "".join([
-                "[WHITESPACE] Pointers should be a *b or a* b, not a*b"])
+        msg = "[WHITESPACE] Pointers should be a *b or a* b, not a*b"
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            self.whitespace_d[token.line_number] = msg
 
     def pointer_space_consistency(self, token):
         self.total += 1
         if self.whitespace_d.get(token.line_number):
             return
-        self.whitespace_d[token.line_number] = "".join([
+        msg = "".join([
                 "[WHITESPACE] Pointers should consistently be a *b or a* b,",
                 " not a mix"])
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            self.whitespace_d[token.line_number] = msg
 
     def whitespace_between_functions(self, token):
         d(["found whitespace error, whitespace between functions", token])
         self.total += 1
-        existing = self.whitespace_d.get(token.line_number, "")
-        addline = ""
-        if existing:
-            newline = "\n"
-        self.whitespace_d[token.line_number] = "".join([existing, addline,
-                "[WHITESPACE] Functions should be separated by reasonable ",
-                "whitespace"])
+        line = token.line_number
+        while self.whitespace_d.get(line):
+            line -= 1
+            if line < 1:
+                return #this is a terrible file, every line has a violation
+                
+        msg = "[WHITESPACE] Functions should be separated by reasonable " \
+                "whitespace"
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            self.whitespace_d[line] = msg
 
     def whitespace(self, token, expected):
         self.total += 1
         assert token.get_spacing_left() != expected
         if self.whitespace_d.get(token.line_number):
             return
-        self.whitespace_d[token.line_number] = "".join([
-                "[WHITESPACE] '", token.line, "' at ",
+        msg = "".join(["[WHITESPACE] '", token.line, "' at ",
                 "position %d: expected %d whitespace, found %d" % \
                 (token.get_position(), expected, token.get_spacing_left())])
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.WHITESPACE):
+            self.whitespace_d[token.line_number] = msg
 
     def indent(self, token, expected):
         self.total += 1
@@ -555,29 +580,39 @@ class Errors(object):
         if self.indent_d.get(token.line_number) \
                 or self.braces_d.get(token.line_number):
             return
-        self.indent_d[token.line_number] = "".join([
-                "[INDENTATION] '", token.line,
+        msg = "".join(["[INDENTATION] '", token.line,
                 "' expected indent of %d spaces, found %d" % \
                 (expected, token.get_spacing_left())])
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.INDENT):
+            self.indent_d[token.line_number] = msg
 
     def line_length(self, line_number, length):
         self.total += 1
-        self.line_length_d[line_number] = "[LINE-LENGTH] line is " + \
-                "%d chars long" % length
+        msg = "[LINE-LENGTH] line is %d chars long" % length
+        if self.verify(msg, line_number, 0, Errors.LINE_LENGTH):
+            self.line_length_d[line_number] = msg
 
     def func_length(self, line_number, length):
         self.total += 1
         if not self.overall_d.get(line_number):
             self.overall_d[line_number] = []
-        self.overall_d[line_number].append("[OVERALL] Function length of" \
-                + " %d is over the maximum of %d" % (length,
-                MAX_FUNCTION_LENGTH))
+        msg = "[OVERALL] Function length of %d is over the maximum of %d" % \
+                (length, MAX_FUNCTION_LENGTH)
+        if not self.verify(msg, line_number, 0, Errors.OVERALL):
+            if len(self.overall_d[line_number]) < 1:
+                del self.overall_d[line_number]
+            return
+        self.overall_d[line_number].append(msg)
+                
 
     def overall(self, line_number, message):
         self.total += 1
         if not self.overall_d.get(line_number):
             self.overall_d[line_number] = []
-        self.overall_d[line_number].append("[OVERALL] %s" % message)
+        msg = "[OVERALL] %s" % message
+        if self.verify(msg, line_number, 0, Errors.OVERALL):
+            self.overall_d[line_number].append()
 
     def braces(self, token, error_type):
         self.total += 1
@@ -592,20 +627,24 @@ class Errors(object):
             msg = ", an opening brace should be the last character on the line"
         elif error_type == Errors.MISSING:
             msg = ", braces are required, even for single line blocks"
+        msg = "[BRACES] at position %d%s" % (token.get_position(), msg)
         if self.indent_d.get(token.line_number) \
                 and error_type == Errors.IF:
             del self.indent_d[token.line_number]
-        self.braces_d[token.line_number] = \
-                "[BRACES] at position %d%s" % (token.get_position(), msg)
+        if self.verify(msg, token.line_number, token.get_position(),
+                Errors.BRACES):
+            self.braces_d[token.line_number] = msg
+                
 
     def comments(self, line_number, error_type):
         self.total += 1
         msg = "WHOOPS"
         if error_type == Errors.FUNCTION:
-            msg = "Functions should be preceded by explanatory comments"
+            msg = "[COMMENTS] Functions should be preceded by explanatory comments"
         elif error_type == Errors.GLOBALS:
-            msg = "Global variables should be commented"
-        self.comments_d[line_number] = "[COMMENTS] %s" % msg
+            msg = "[COMMENTS] Global variables should be commented"
+        if self.verify(msg, line_number, 0, Errors.COMMENTS):
+            self.comments_d[line_number] = msg
 
     def get(self, line_number):
         result = []
@@ -669,9 +708,10 @@ class EnumStyle(object):
 class Styler(object):
     MAX = False
     """ Where style violations are born """
-    def __init__(self, filename, quiet = False, output_file = False):
+    def __init__(self, filename, quiet = False, output_file = False,
+    		error_tracker=Errors):
         #some setup
-        self.errors = Errors(output_file)
+        self.errors = error_tracker(output_file)
         self.found_types = []
         self.found_defines = {}
         self.included_files = []
@@ -717,14 +757,14 @@ class Styler(object):
                 raise RuntimeError("Error accessing tokens that should exist")
             else:
                 d(["file complete"])
-        except (RuntimeError, AssertionError) as e:
+        except (RuntimeError, AssertionError) as err:
             if self.quiet:
-                raise e
+                raise err
             if DEBUG:
                 import traceback
                 traceback.print_exc()
             line_number = self.current_token.line_number
-            raise RuntimeError(e.message + "\n\033[1mStyling " + filename + \
+            raise RuntimeError(err.message + "\n\033[1mStyling " + filename + \
                     " failed on line %d\033[0m\n"%line_number)
         #before we're done with the file, check the filename style
         if "/" in filename:
@@ -754,8 +794,8 @@ class Styler(object):
         try:
             self.position = position
             self.current_token = self.tokens[self.position]
-        except IndexError as e:
-            raise NoMoreTokensError(e.message)
+        except IndexError as err:
+            raise NoMoreTokensError(err.message)
 
     def current_type(self):
         return self.current_token.get_type()
@@ -946,7 +986,7 @@ class Styler(object):
                         return self.tokens[i].get_type() == Type.ELSE
                 elif self.tokens[i].get_type() == Type.LBRACE:
                     depth += 1
-        except IndexError as e:
+        except IndexError:
             d(["ignoring IndexError while looking for matching else"])
         d(["has matching_else: ending at ", self.tokens[self.position]])
         return False
@@ -984,14 +1024,13 @@ class Styler(object):
         if self.current_type() == Type.UNKNOWN:
             identifier = self.current_token.get_string()
             line = self.current_token.line_number
-            filename = self.filename
             raise RuntimeError("%s:%d:'%s'"%(self.filename, line, identifier)+\
                     "is an unknown type, are you missing a dependency?")
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
                 Type.LPAREN, Type.ENUM, Type.STAR, Type.STRUCT_OP]
         if self.current_type() == Type.STRUCT_OP:
             #ellipsis or variadic args (...)
-            for i in range(3):
+            for _ in range(3):
                 self.match(Type.STRUCT_OP)
                 self.check_whitespace(0)
             d(["match_type(): exiting",
@@ -1239,10 +1278,10 @@ class Styler(object):
                     return
                 try:
                     fun_with_recursion = Styler(name, quiet=True)
-                except (RuntimeError, AssertionError) as e:
+                except (RuntimeError, AssertionError) as err:
                     self.current_token = include_token
                     raise RuntimeError("#included file " + include_name + \
-                            " caused an error:\n\t%s"%(e.message))
+                            " caused an error:\n\t%s"%(err.message))
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -1284,6 +1323,10 @@ class Styler(object):
     def check_naming(self, token, name_type = Errors.VARIABLE):
         if name_type == Errors.FILES:
             name = token
+            token = Word()
+            token.line = name
+            token.position = 0
+            token.finalise()
             if "_" in name or name[0].isupper():
                 d(["naming violation for filename:", name])
                 self.errors.naming(token, name_type)
@@ -1601,7 +1644,7 @@ class Styler(object):
             else:
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE) #\n}\n
         elif self.current_type() == Type.SEMICOLON:
-            pass # while(a);
+            # while(a);
             self.check_whitespace(0)
             self.match(Type.SEMICOLON)
         else:
@@ -1897,8 +1940,9 @@ class Styler(object):
             self.match(Type.SEMICOLON, MUST_NEWLINE)
         elif self.current_type() == Type.GOTO:
             self.match(Type.GOTO)
-            raise RuntimeError("WARNING: you have used a goto, this is banned"+\
-                    ", exiting")
+            if GOTO_BANNED:
+                raise RuntimeError("WARNING: you have used a goto, this "+\
+                        "is banned, exiting")
             self.check_whitespace(1)
             self.match(Type.UNKNOWN)
             self.check_whitespace(0)
@@ -2467,8 +2511,8 @@ if __name__ == '__main__':
             try:
                 style = Styler(sys.argv[f], hide_violation_msgs,
                                use_output_file)
-            except RuntimeError as e:
-                print(e.message)
+            except RuntimeError as error:
+                print(error.message)
                 sys.exit(1)
             print(style.errors)
     if files_parsed > 0:
