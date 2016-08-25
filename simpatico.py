@@ -1071,7 +1071,7 @@ class Styler(object):
             self.check_post_identifier()
         # check if function pointer (preceeded by type, that's why not elif)
         if self.current_type() == Type.LPAREN:
-            d(["this type is a function pointer"])
+            d(["this type might be a function pointer"])
             if self.last_real_token.get_type() == Type.TYPE:
                 self.check_whitespace(1)
             else:
@@ -1091,12 +1091,7 @@ class Styler(object):
                     self.match() #identifier
                 self.check_whitespace(0)
                 #this could very well be an array type, so check for indicies
-                while self.current_type() == Type.LSQUARE:
-                    self.match(Type.LSQUARE)
-                    self.check_whitespace(0)
-                    self.check_expression() #static size
-                    self.check_whitespace(0)
-                    self.match(Type.RSQUARE)
+                self.check_index()
                 #is this a function returning a func pointer?
                 if self.current_type() == Type.LPAREN:
                     self.check_naming(name, Errors.FUNCTION)
@@ -1127,21 +1122,30 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.RPAREN)
                 self.check_whitespace(0)
-                self.match(Type.LPAREN) #type (id)(
-                if self.current_type() != Type.RPAREN:
-                    self.check_whitespace(0)
-                    self.match_type()
-                    if self.current_type() == Type.UNKNOWN:
-                        self.check_whitespace(1, ALLOW_ZERO)
-                        self.match(Type.UNKNOWN)
-                    while self.current_type() == Type.COMMA:
+                if self.current_type() == Type.LPAREN:
+                    d(["this type was a function pointer"])
+                    self.match(Type.LPAREN) #type (id)(
+                    if self.current_type() != Type.RPAREN:
                         self.check_whitespace(0)
-                        self.match(Type.COMMA)
-                        self.check_whitespace(1)
                         self.match_type()
                         if self.current_type() == Type.UNKNOWN:
                             self.check_whitespace(1, ALLOW_ZERO)
                             self.match(Type.UNKNOWN)
+                        while self.current_type() == Type.COMMA:
+                            self.check_whitespace(0)
+                            self.match(Type.COMMA)
+                            self.check_whitespace(1)
+                            self.match_type()
+                            if self.current_type() == Type.UNKNOWN:
+                                self.check_whitespace(1, ALLOW_ZERO)
+                                self.match(Type.UNKNOWN)
+                elif self.current_type() == Type.LSQUARE:
+                    #type (id)[
+                    d(["this type was an array with pointer binds"])
+                    self.check_index()
+                    #type (id)[][][].., which is complete, so
+                    d(["match_type(): exited", self.current_token])
+                    return
             self.check_whitespace(0)
             self.match(Type.RPAREN) #(id(types,types))
         d(["match_type(): exited", self.current_token])
@@ -1367,6 +1371,16 @@ class Styler(object):
         else:
             raise RuntimeError("check_naming():" + \
                                " unknown naming type given: token=%s"%(token))
+
+    def check_index(self):
+        d(["check_struct() entered"])
+        while self.current_type() == Type.LSQUARE:
+            self.match(Type.LSQUARE)
+            self.check_whitespace(0)
+            self.check_expression() #static size
+            self.check_whitespace(0)
+            self.match(Type.RSQUARE)
+        d(["check_struct() exited"])
 
     def check_struct(self, isTypedef = False):
         d(["check_struct() entered"])
@@ -2273,11 +2287,7 @@ class Styler(object):
         self.check_whitespace(expected)
         #partial array init
         if self.current_type() == Type.LSQUARE:
-            self.match(Type.LSQUARE)
-            self.check_whitespace(0)
-            self.check_expression()
-            self.check_whitespace(0)
-            self.match(Type.RSQUARE)
+            self.check_index()
             self.check_whitespace(1)
             self.match(Type.ASSIGNMENT)
             self.check_whitespace(1)
@@ -2286,11 +2296,7 @@ class Styler(object):
             #comma dealt with in expressions
             while self.current_type() == Type.LSQUARE:
                 self.check_whitespace(1)
-                self.match(Type.LSQUARE)
-                self.check_whitespace(0)
-                self.check_expression()
-                self.check_whitespace(0)
-                self.match(Type.RSQUARE)
+                self.check_index()
                 self.check_whitespace(1)
                 self.match(Type.ASSIGNMENT)
                 self.check_whitespace(1)

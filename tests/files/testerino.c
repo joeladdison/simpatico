@@ -324,6 +324,9 @@ void partial() {
     };
 }
 
+/* test that we don't treat pointers to arrays as func pointers */
+void pointer_to_array(int (*p)[7]) {
+}
 
 /* heres a comment*/
 int main(int argc, char **argv) {
