@@ -1282,7 +1282,7 @@ class Styler(object):
                 #this is only here for iso646.h, which defines alternates
                 #for single binary operators
                 #multi-terminal targets will break here
-                new_defines = headers.standard_header_defines.get(include_name, -1)
+                new_defines = headers.standard_header_defines.get(include_name, [])
                 for define, definition in new_defines:
                     token = Word()
                     token.line = definition
