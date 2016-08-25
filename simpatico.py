@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # simpatico.py
-""" This is a complete rewrite of the old simpatico.
-Hopefully it's good. """
+""" This is a complete rewrite of the old simpatico. Hopefully it's good. """
 from __future__ import print_function, absolute_import
 
 import sys
+
+try:
+    range = xrange
+except NameError:
+    # Python 3 is nice already
+    pass
 
 import headers
 
@@ -22,7 +27,7 @@ GOTO_BANNED = True
 OUTPUT_REPORT_LIMIT_PER_CATEGORY_PER_FILE = 15
 
 ALLOW_ZERO = True
-(NO_NEWLINE, MAY_NEWLINE, MUST_NEWLINE) = range(3)
+(NO_NEWLINE, MAY_NEWLINE, MUST_NEWLINE) = list(range(3))
 IS_TYPEDEF = True
 MISSING_TYPE = False
 DISALLOW_EXPRESSIONS = False
@@ -40,14 +45,13 @@ STRUCT_UNION = ["struct", "union"]
 STORAGE_CLASS = ["register", "static", "extern", "auto", "typedef"]
 TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
 
+
 class NoMoreTokensError(Exception):
-    def __init__(self, message):
-        super(NoMoreTokensError, self).__init__(message)
+    """ No remaining tokens to process """
 
 
 class MissingHeaderError(Exception):
-    def __init__(self, message):
-        super(MissingHeaderError, self).__init__(message)
+    """ Header file included that is not pre-processed or available locally """
 
 
 class Terminals(object):
@@ -117,7 +121,7 @@ class Type(object):
         LINE_CONT, DEFAULT, NOT, SIZEOF, PREPROCESSOR, ATTRIBUTE, HASH, ENUM,
         #47
         GOTO, PLUS, TILDE, STRUCT_OP
-    ) = range(51)
+    ) = list(range(51))
     SIMPLE_TYPES = {"include" : INCLUDE,
             Terminals.KW_IF : IF,
             Terminals.KW_ELSE : ELSE,
@@ -439,8 +443,9 @@ class Tokeniser(object):
 class Errors(object):
     """Everyone's favourite"""
     (IF, ELSE, ELSEIF, RUNON, FUNCTION, GLOBALS, VARIABLE, TYPE,
-            DEFINE, MISSING, CLOSING, FILES, HUNGARIAN) = range(13)
-    (NAMING, WHITESPACE, COMMENTS, BRACES, LINE_LENGTH, OVERALL, INDENT) = range(7)
+            DEFINE, MISSING, CLOSING, FILES, HUNGARIAN) = list(range(13))
+    (NAMING, WHITESPACE, COMMENTS, BRACES, LINE_LENGTH,
+            OVERALL, INDENT) = list(range(7))
     def __init__(self, writing_to_file = False):
         self.naming_d = {}
         self.whitespace_d = {}
@@ -769,7 +774,7 @@ class Styler(object):
                 import traceback
                 traceback.print_exc()
             line_number = self.current_token.line_number
-            raise RuntimeError(err.message + "\n\033[1mStyling " + filename + \
+            raise RuntimeError(str(err) + "\n\033[1mStyling " + filename + \
                     " failed on line %d\033[0m\n"%line_number)
         #before we're done with the file, check the filename style
         if "/" in filename:
@@ -800,7 +805,7 @@ class Styler(object):
             self.position = position
             self.current_token = self.tokens[self.position]
         except IndexError as err:
-            raise NoMoreTokensError(err.message)
+            raise NoMoreTokensError(str(err))
 
     def current_type(self):
         return self.current_token.get_type()
@@ -978,7 +983,7 @@ class Styler(object):
         i = self.position
         depth = 0
         try:
-            while i < (self.tokens) and depth >= 0:
+            while i < len(self.tokens) and depth >= 0:
                 i += 1
                 if self.tokens[i].get_type() == Type.RBRACE:
                     depth -= 1
@@ -1029,8 +1034,10 @@ class Styler(object):
         if self.current_type() == Type.UNKNOWN:
             identifier = self.current_token.get_string()
             line = self.current_token.line_number
-            raise RuntimeError("%s:%d:'%s'"%(self.filename, line, identifier)+\
-                    "is an unknown type, are you missing a dependency?")
+            raise RuntimeError(
+                "{0}:{1:d}:'{2}' is an unknown type, " +
+                "are you missing a dependency?".format(
+                    self.filename, line, identifier))
         assert self.current_type() in [Type.TYPE, Type.IGNORE, Type.STRUCT,
                 Type.LPAREN, Type.ENUM, Type.STAR, Type.STRUCT_OP]
         if self.current_type() == Type.STRUCT_OP:
@@ -1219,7 +1226,7 @@ class Styler(object):
             #ruh roh
             else:
                 raise RuntimeError("Found an awkward type in global space: " + \
-                        self.current_token.getBoldString())
+                        self.current_token.bold_str())
             self.last_global_line_number = self.last_real_token.line_number
 
     def check_precompile(self):
@@ -1290,8 +1297,9 @@ class Styler(object):
                     fun_with_recursion = Styler(name, quiet=True)
                 except (RuntimeError, AssertionError) as err:
                     self.current_token = include_token
-                    raise RuntimeError("#included file " + include_name + \
-                            " caused an error:\n\t%s"%(err.message))
+                    raise RuntimeError(
+                        "#included file {0} caused an error:\n\t{1}".format(
+                            include_name, err))
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -1299,7 +1307,7 @@ class Styler(object):
             self.update_types(new_types)
             self.included_files.append(include_name)
             #update any defined identifiers
-            for key in defines.keys():
+            for key in defines:
                 self.found_defines[key] = defines[key]
                 for token in self.tokens[self.position:]:
                     if token.line == key:
@@ -1375,8 +1383,8 @@ class Styler(object):
                 d(["naming violation for define:", name])
                 self.errors.naming(token, name_type)
         else:
-            raise RuntimeError("check_naming():" + \
-                               " unknown naming type given: token=%s"%(token))
+            raise RuntimeError("check_naming(): unknown naming type given: " +
+                               "token={0}".format(token))
 
     def check_index(self):
         d(["check_struct() entered"])
@@ -1585,8 +1593,8 @@ class Styler(object):
             return
         self.check_whitespace(1)
         if self.current_type() != Type.UNKNOWN: #wasn't a type
-            raise RuntimeError("Expected UNKNOWN got %s"%(\
-                    TYPE_STRINGS[self.current_type()]))
+            raise RuntimeError("Expected UNKNOWN got {0}".format(
+                                    TYPE_STRINGS[self.current_type()]))
         d(["check_typedef() adding type:", self.current_token.line])
         self.update_types([self.current_token.line])
         self.check_naming(self.current_token, Errors.TYPE)
@@ -1929,9 +1937,9 @@ class Styler(object):
                 #they did
                 #TODO: maybe violate them for improper use of headers
                 self.current_token.set_type(Type.TYPE)
-                print(self.filename, "possibly missing dependencies " + \
-                        "assuming '%s' is a type"%(\
-                        self.current_token.getBoldString()))
+                print(self.filename, "possibly missing dependencies " +
+                        "assuming '{0}' is a type".format(
+                        self.current_token.bold_str()))
                 self.update_types([self.current_token.line])
                 self.match(Type.TYPE)
             #is this naughty GOTO territory?
@@ -2053,8 +2061,8 @@ class Styler(object):
             d(["check_exp(): exited, nothing to do", self.current_token])
             self.nothing_count += 1
             if self.nothing_count > 20:
-                raise RuntimeError("infinite loop detected, %s"% \
-                        self.current_token)
+                raise RuntimeError(
+                    "infinite loop detected, {0}".format(self.current_token))
             return
         self.nothing_count = 0
         #get those unary ops out of the way
@@ -2082,7 +2090,8 @@ class Styler(object):
                 Type.SIZEOF, Type.LPAREN, Type.TYPE]:
             d(["check_exp(): unexpected token:", self.current_token,
                     self.current_type(), self.filename])
-            raise RuntimeError("Token of unknown type %s in expression"%(\
+            raise RuntimeError(
+                "Token of unknown type {0} in expression".format(
                     TYPE_STRINGS[self.current_type()]))
 
         #grab a value of some form
@@ -2095,8 +2104,9 @@ class Styler(object):
                     and self.peek().get_type() == Type.STAR \
                     and self.peek(2).get_type() == Type.RPAREN:
                 #compiling this file on it's own would generate errors...
-                print(self.filename, "possibly missing dependencies, assuming",
-                        "'%s' is a type"%(self.current_token.getBoldString()))
+                print(self.filename,
+                    "possibly missing dependencies, assuming",
+                    "'{0}' is a type".format(self.current_token.bold_str()))
                 self.update_types([self.current_token.line])
             #typecast
             if self.current_type() in [Type.TYPE, Type.STRUCT, Type.IGNORE]:
@@ -2270,7 +2280,7 @@ class Styler(object):
             else:
                 self.errors.overall(first.line_number,
                         "do not #define a keyword/constant to something else")
-                for n in xrange(self.position + 1, len(self.tokens)):
+                for n in range(self.position + 1, len(self.tokens)):
                     if self.tokens[n]._type == first._type:
                         self.tokens[n]._type = tokens[0]._type
             self.found_defines[first.line] = tokens
@@ -2354,7 +2364,7 @@ class Styler(object):
                 #include the typedef, but because they're merged during
                 #compilation, gcc doesn't complain
                 print(self.filename, "possibly missing dependencies, assuming",
-                        "'%s' is a type"%(self.current_token.getBoldString()))
+                    "'{0}' is a type".format(self.current_token.bold_str()))
                 self.update_types([self.current_token.line])
                 self.match_type()
                 self.check_whitespace(1, ALLOW_ZERO)
@@ -2381,7 +2391,8 @@ class Styler(object):
                 current_line = self.current_token.line_number
                 #gap = num lines between the two, exclusive
                 gap = current_line - self.last_global_line_number - 1
-                d(["initial function gap of", gap, "(%d-%d)"%(current_line, self.last_global_line_number)])
+                d(["initial function gap of", gap,
+                    "({0:d}-{1:d})".format(current_line, self.last_global_line_number)])
                 for i in range(self.last_global_line_number + 1, current_line):
                     if self.comments.get(i):
                         gap -= 1
@@ -2524,7 +2535,7 @@ if __name__ == '__main__':
                 style = Styler(sys.argv[f], hide_violation_msgs,
                                use_output_file)
             except RuntimeError as error:
-                print(error.message)
+                print(error)
                 sys.exit(1)
             except MissingHeaderError:
                 sys.exit(2)
