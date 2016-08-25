@@ -43,7 +43,12 @@ TYPE_QUALIFIERS = ["const", "restrict", "volatile"]
 class NoMoreTokensError(Exception):
     def __init__(self, message):
         super(NoMoreTokensError, self).__init__(message)
-        
+
+
+class MissingHeaderError(Exception):
+    def __init__(self, message):
+        super(MissingHeaderError, self).__init__(message)
+
 
 class Terminals(object):
     KW_AUTO = "auto"
@@ -219,7 +224,7 @@ class Word(object):
         """ here's where we work out what type of thing this word is """
         line = "".join(self.line)
         self.line = line
-        
+
         if line in Type.SIMPLE_TYPES:
             self._type = Type.SIMPLE_TYPES[line]
         elif line.lower() == "define":
@@ -445,7 +450,7 @@ class Errors(object):
         self.overall_d = {}
         self.indent_d = {}
         self.notes_d = {}
-        self.error_types = ["naming", "whitespace", "comments", "braces", 
+        self.error_types = ["naming", "whitespace", "comments", "braces",
                 "line_length", "overall", "indent", "notes"]
         self.error_dicts = [self.naming_d, self.whitespace_d, self.comments_d,
                 self.braces_d, self.line_length_d, self.overall_d,
@@ -555,7 +560,7 @@ class Errors(object):
             line -= 1
             if line < 1:
                 return #this is a terrible file, every line has a violation
-                
+
         msg = "[WHITESPACE] Functions should be separated by reasonable " \
                 "whitespace"
         if self.verify(msg, token.line_number, token.get_position(),
@@ -604,7 +609,7 @@ class Errors(object):
                 del self.overall_d[line_number]
             return
         self.overall_d[line_number].append(msg)
-                
+
 
     def overall(self, line_number, message):
         self.total += 1
@@ -634,7 +639,7 @@ class Errors(object):
         if self.verify(msg, token.line_number, token.get_position(),
                 Errors.BRACES):
             self.braces_d[token.line_number] = msg
-                
+
 
     def comments(self, line_number, error_type):
         self.total += 1
@@ -1272,7 +1277,8 @@ class Styler(object):
                         "Since the parsing will likely break terribly due to ",
                         "unknown types\n(C is not a context free language), ",
                         "simpatico will end parsing now."]))
-                    exit(2)
+                    raise MissingHeaderError(
+                        "Could not find header: {0}".format(include_name))
                 #this is only here for iso646.h, which defines alternates
                 #for single binary operators
                 #multi-terminal targets will break here
@@ -2529,6 +2535,8 @@ if __name__ == '__main__':
             except RuntimeError as error:
                 print(error.message)
                 sys.exit(1)
+            except MissingHeaderError:
+                sys.exit(2)
             print(style.errors)
     if files_parsed > 0:
         print("\033[1mTHIS IS NOT A GUARANTEE OF CORRECTNESS\033[0m")
