@@ -709,7 +709,7 @@ class Styler(object):
     MAX = False
     """ Where style violations are born """
     def __init__(self, filename, quiet = False, output_file = False,
-    		error_tracker=Errors):
+            error_tracker=Errors):
         #some setup
         self.errors = error_tracker(output_file)
         self.found_types = []
@@ -1273,6 +1273,15 @@ class Styler(object):
                         "unknown types\n(C is not a context free language), ",
                         "simpatico will end parsing now."]))
                     exit(2)
+                #this is only here for iso646.h, which defines alternates
+                #for single binary operators
+                #multi-terminal targets will break here
+                new_defines = headers.standard_header_defines.get(include_name, -1)
+                for define, definition in new_defines:
+                    token = Word()
+                    token.line = definition
+                    token.finalise()
+                    defines[define] = [token]
             #custom header
             else:
                 #strip the " from beginning and end, prepend with path

@@ -1,3 +1,11 @@
+standard_header_defines = {
+#each tuple should be (define, definition)
+#where definition must be a single Word
+"iso646.h" : [("and","&&"),("and_eq","&="),("bitand","&"),("bitor","|"),
+	("compl","~"),("not","!"),("not_eq","!="),("or","||"),("or_eq","|="),
+	("xor","^"),("xor_eq","^=")]
+}
+
 standard_header_types = {
 "assert.h" : [],
 "complex.h" : [],
@@ -609,6 +617,7 @@ standard_header_types = {
         "time_t", "timer_t", "off_t", "__fd_mask", "fd_set", "timeval",
         "sched_param"],
 "netinet/tcp.h" : ["tcp_seq"],
-"termios.h" : ["tcflag_t", "cc_t", "speed_t"]
+"termios.h" : ["tcflag_t", "cc_t", "speed_t"],
+"iso646.h" : []
 }
 
