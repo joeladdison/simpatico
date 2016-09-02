@@ -133,9 +133,18 @@ struct PointerSpace {
     struct PointerSpace* second; //error, inconsistent pointer spacing
 };
 
+/* check for inconsistent pointer spacing in undefined prototype args */
+void test_array_styles(int*, int *); //error
+void test_casts(int *, int*); //error
+
+/* and check for bad spacing in casts */
+void test_casts(int *a, int *b) {
+    int *c = (int *) a;
+    int *d = (int*) b; //error
+}
 
 /* block style and inline and things that don't match inbetween */
-void test_array_styles() {
+void test_array_styles(int *a, int *b) {
     char *inlined[] = {"yep", "this", "is",
             "right"};
     char *block[] = {

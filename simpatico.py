@@ -1488,14 +1488,19 @@ class Styler(object):
                 self.match()
             found = True
             space_after = self.current_token.get_spacing_left()
-            if self.current_type() != Type.UNKNOWN:
+            if self.current_type() in [Type.COMMA, Type.RPAREN]:
+                #prototypes without named args, casts, etc
+            	pass
+            elif self.current_type() != Type.UNKNOWN or complicated_pointer \
+                    or before not in [Type.TYPE, Type.UNKNOWN]:
                 #things get weird if it's not a declaration
-                d(["WARNING: skipping pointer space checks, not a declaration"])
-            elif complicated_pointer or before not in [Type.TYPE, Type.UNKNOWN]:
                 #other complicated things like: int *(*funcpointer)
                 #but not things like: struct Bob *thing
                 d(["WARNING: skipping pointer space checks, too complicated"])
-            elif space_before and space_after:
+                d(["match_pointers() exited, found:", found, self.current_token])
+                return found
+            #now that we know to care about it, lets check it
+            if space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
             elif space_before == 0 and space_after == 0:
                 self.errors.whitespace_cuddled_pointer(self.current_token)
