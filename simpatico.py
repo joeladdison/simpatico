@@ -4,6 +4,7 @@
 from __future__ import print_function, absolute_import
 
 import sys
+import io
 
 try:
     range = xrange
@@ -292,9 +293,9 @@ class Tokeniser(object):
         self.comment_lines = {}
         self.current_word_start = 1
         #well that was fun, now we should do some real work
-        inf = open(filename, "r")
-        allllll_of_it = inf.read().expandtabs(8).replace('\r', ' ')
-        inf.close()
+        allllll_of_it = ''
+        with io.open(filename, "r", encoding="utf_8") as inf:
+            allllll_of_it = inf.read().expandtabs(8).replace('\r', ' ')
         self.tokenise(allllll_of_it)
 
     def end_word(self):
@@ -745,13 +746,12 @@ class Styler(object):
         self.comments = tokeniser.comment_lines
         #scan for overlong lines
         lnum = 1
-        f = open(filename, "r")
-        for line in f:
-            line = line.expandtabs(8)
-            if len(line) > MAX_LINE_LENGTH:
-                self.errors.line_length(lnum, len(line))
-            lnum += 1
-        f.close()
+        with io.open(filename, "r", encoding="utf_8") as f:
+            for line in f:
+                line = line.expandtabs(8)
+                if len(line) > MAX_LINE_LENGTH:
+                    self.errors.line_length(lnum, len(line))
+                lnum += 1
         try:
             self.move_token_cursor(self.position)
             self.last_real_token = Word()
@@ -1004,15 +1004,13 @@ class Styler(object):
     def write_output_file(self):
         """go over the file and insert messages when appropriate"""
         line_number = 1
-        outf = open(self.filename+".styled", "w")
-        infile = open(self.filename, "r")
-        for line in infile:
-            lines = [a for a in self.errors.get(line_number) if a]
-            lines.append(line)
-            outf.writelines(lines)
-            line_number += 1
-        infile.close()
-        outf.close()
+        with io.open(self.filename+".styled", "w", encoding="utf_8") as outf:
+            with io.open(self.filename, "r", encoding="utf_8") as infile:
+                for line in infile:
+                    lines = [a for a in self.errors.get(line_number) if a]
+                    lines.append(line)
+                    outf.writelines(lines)
+                    line_number += 1
 
     def consume_line(self):
         while self.current_type() != Type.NEWLINE:
