@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # simpatico.py
 """ This is a complete rewrite of the old simpatico. Hopefully it's good. """
-from __future__ import print_function, absolute_import
+from __future__ import print_function, absolute_import, unicode_literals
 
 import sys
 import io
@@ -256,7 +256,7 @@ class Word(object):
             #d(["finalise() could not match type for", self])
             self._type = Type.UNKNOWN #variables and externally defined types
 
-    def getBoldString(self):
+    def bold_str(self):
         return "\033[1m%s\033[0m"%("".join(self.line))
 
     def __str__(self):
