@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # simpatico.py
 """ This is a complete rewrite of the old simpatico. Hopefully it's good. """
-from __future__ import print_function, absolute_import
+from __future__ import print_function, absolute_import, unicode_literals
 
 import sys
 import io
