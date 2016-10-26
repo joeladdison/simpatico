@@ -623,7 +623,7 @@ class Errors(object):
             self.overall_d[line_number] = []
         msg = "[OVERALL] %s" % message
         if self.verify(msg, line_number, 0, Errors.OVERALL):
-            self.overall_d[line_number].append()
+            self.overall_d[line_number].append(msg)
 
     def braces(self, token, error_type):
         self.total += 1
