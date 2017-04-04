@@ -623,7 +623,7 @@ class Errors(object):
             self.overall_d[line_number] = []
         msg = "[OVERALL] %s" % message
         if self.verify(msg, line_number, 0, Errors.OVERALL):
-            self.overall_d[line_number].append()
+            self.overall_d[line_number].append(msg)
 
     def braces(self, token, error_type):
         self.total += 1
@@ -1486,9 +1486,10 @@ class Styler(object):
                 self.match()
             found = True
             space_after = self.current_token.get_spacing_left()
+            type_only = False
             if self.current_type() in [Type.COMMA, Type.RPAREN]:
-                #prototypes without named args, casts, etc
-            	pass
+                d(["prototypes without named args, casts, etc"])
+                type_only = True
             elif self.current_type() != Type.UNKNOWN or complicated_pointer \
                     or before not in [Type.TYPE, Type.UNKNOWN]:
                 #things get weird if it's not a declaration
@@ -1498,9 +1499,10 @@ class Styler(object):
                 d(["match_pointers() exited, found:", found, self.current_token])
                 return found
             #now that we know to care about it, lets check it
+            d(["Spacing - before: ", space_before, ", after: ", space_after])
             if space_before and space_after:
                 self.errors.whitespace_surrounding_pointer(self.current_token)
-            elif space_before == 0 and space_after == 0:
+            elif not type_only and space_before == 0 and space_after == 0:
                 self.errors.whitespace_cuddled_pointer(self.current_token)
             elif self.pointer_style == PointerStyle.UNSET:
                 if space_before:
@@ -1508,7 +1510,8 @@ class Styler(object):
                 elif space_after:
                     self.pointer_style = PointerStyle.RIGHT
             else:
-                if self.pointer_style == PointerStyle.LEFT and space_after:
+                if self.pointer_style == PointerStyle.LEFT and \
+                        (space_after or (type_only and not space_before)):
                     self.errors.pointer_space_consistency(self.current_token)
                 elif self.pointer_style == PointerStyle.RIGHT and space_before:
                     self.errors.pointer_space_consistency(self.current_token)
