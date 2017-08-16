@@ -2308,7 +2308,7 @@ class Styler(object):
             self.check_expression()
             return
         brace_line = self.current_token.line_number
-        self.match(Type.LBRACE, MAY_NEWLINE)
+        self.match(Type.LBRACE, pre_newline=MAY_NEWLINE)
         block_style = self.current_token.line_number != brace_line
         if block_style:
             self.depth += 1

@@ -27,7 +27,7 @@ void if_continutation(void) {
     }
 }
 
-int fa(int Bad) 
+int fa(int Bad)
 {
     if (a) {
         a++;
@@ -52,6 +52,10 @@ int fb(int a) {
 
 int main(int argc, char **argv) {
     int a;
+    int thing[][3] = {
+        {1, 2, 3},
+        {3, 4, 5}
+    };
     switch (a) {
         case 0:
             return 0;
