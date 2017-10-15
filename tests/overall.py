@@ -1,5 +1,5 @@
-from tests import TestSimpatico
-
+import unittest
+from base import TestSimpatico
 
 class TestOverall(TestSimpatico):
     def test_overall(self):
@@ -17,3 +17,7 @@ class TestOverall(TestSimpatico):
 
         self.assertEqual(len(found_error_lines), len(expected_error_lines))
         self.assertSetEqual(found_error_lines, set(expected_error_lines))
+
+
+if __name__ == "__main__":
+    unittest.main()

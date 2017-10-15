@@ -1,4 +1,4 @@
-from tests import TestSimpatico
+from base import TestSimpatico
 
 class TestBraces(TestSimpatico):
     def test_good(self):

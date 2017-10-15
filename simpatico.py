@@ -4,6 +4,7 @@
 from __future__ import print_function, absolute_import, unicode_literals
 
 import sys
+import os
 import io
 
 try:
@@ -720,7 +721,7 @@ class Styler(object):
     MAX = False
     """ Where style violations are born """
     def __init__(self, filename, quiet = False, output_file = False,
-            error_tracker=Errors):
+            error_tracker=Errors, include_paths=()):
         #some setup
         self.errors = error_tracker(output_file)
         self.found_types = []
@@ -736,6 +737,7 @@ class Styler(object):
             self.path = filename[:filename.rfind("/") + 1]
         elif "\\" in filename:
             self.path = filename[:filename.rfind("\\") + 1]
+        self.include_paths = include_paths
         self.position = 0
         self.depth = 0
         self.line_continuation = False
@@ -1295,18 +1297,38 @@ class Styler(object):
                     defines[define] = [token]
             #custom header
             else:
-                #strip the " from beginning and end, prepend with path
-                name = self.path + include_name[1:-1]
-                if name == self.filename:
-                    d(["check_precompile() exited", self.current_token])
-                    return
+                # strip the " from beginning and end
+                name = include_name[1:-1]
+
+                # Try to find the file, starting with the current file's path
+                include_file = None
+
+                search_paths = [self.path]
+                search_paths.extend(self.include_paths)
+
+                for search_path in search_paths:
+                    filename = os.path.join(search_path, name)
+                    if filename == self.filename:
+                        d(["check_precompile() exited", self.current_token])
+                        return
+                    d(["Checking for", name, "in",
+                        search_path if search_path else "source directory",
+                        "(", filename, ")"])
+                    if os.path.exists(filename):
+                        d(["Found include at", filename])
+                        include_file = filename
+
+                if not include_file:
+                    raise MissingHeaderError(
+                        "Could not find header: {0}".format(include_name))
+
                 try:
-                    fun_with_recursion = Styler(name, quiet=True)
+                    fun_with_recursion = Styler(include_file, quiet=True)
                 except (RuntimeError, AssertionError) as err:
                     self.current_token = include_token
                     raise RuntimeError(
                         "#included file {0} caused an error:\n\t{1}".format(
-                            include_name, err))
+                            include_file, err))
                 new_types = fun_with_recursion.found_types
                 defines = fun_with_recursion.found_defines
             d(["including", len(new_types), "types from", include_name])
@@ -2538,9 +2560,13 @@ if __name__ == '__main__':
         DEBUG = True
     hide_violation_msgs = "-q" in sys.argv
     use_output_file = "-o" in sys.argv
+    include_paths = []
     files_parsed = 0
     for f in range(1, len(sys.argv)):
         if sys.argv[f] in ["-d", "-q", "-o"]:
+            continue
+        if sys.argv[f].startswith("-I"):
+            include_paths.append(sys.argv[f][2:])
             continue
         if sys.argv[f].strip():
             print('Parsing %s...' % sys.argv[f])
@@ -2548,11 +2574,12 @@ if __name__ == '__main__':
             style = None
             try:
                 style = Styler(sys.argv[f], hide_violation_msgs,
-                               use_output_file)
+                               use_output_file, include_paths=include_paths)
             except RuntimeError as error:
                 print(error)
                 sys.exit(1)
-            except MissingHeaderError:
+            except MissingHeaderError as error:
+                print(error)
                 sys.exit(2)
             print(style.errors)
     if files_parsed > 0:

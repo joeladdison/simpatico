@@ -1,4 +1,5 @@
-from tests import TestSimpatico
+import unittest
+from base import TestSimpatico
 
 class TestLineLength(TestSimpatico):
 
