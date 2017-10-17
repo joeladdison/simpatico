@@ -1275,10 +1275,25 @@ class Styler(object):
             defines = {}
             if include_std:
                 new_types = headers.standard_header_types.get(include_name, -1)
+
+                if new_types == -1:
+                    include_file = None
+                    for search_path in self.include_paths:
+                        filename = os.path.join(search_path, include_name)
+                        d(["Checking for", include_name, "in", search_path,
+                           "(", filename, ")"])
+                        if os.path.exists(filename):
+                            d(["Found include at", filename])
+                            include_file = filename
+
+                    if include_file:
+                        new_types, defines = self.load_header(include_file)
+
                 if new_types == -1:
                     print("".join([
                         "\nThe header <", include_name,
-                        "> was not found in the preprocessed list.\n"
+                        "> was not found in the preprocessed list, "
+                        "nor was it found in the include search list.\n"
                         "Please report this to the maintainer so it ",
                         "can be fixed.\n",
                         "Since the parsing will likely break terribly due to ",
@@ -1286,6 +1301,7 @@ class Styler(object):
                         "simpatico will end parsing now."]))
                     raise MissingHeaderError(
                         "Could not find header: {0}".format(include_name))
+
                 #this is only here for iso646.h, which defines alternates
                 #for single binary operators
                 #multi-terminal targets will break here
@@ -1299,38 +1315,18 @@ class Styler(object):
             else:
                 # strip the " from beginning and end
                 name = include_name[1:-1]
+                include_file = os.path.join(self.path, name)
 
-                # Try to find the file, starting with the current file's path
-                include_file = None
+                if include_file == self.filename:
+                    d(["check_precompile() exited", self.current_token])
+                    return
 
-                search_paths = [self.path]
-                search_paths.extend(self.include_paths)
-
-                for search_path in search_paths:
-                    filename = os.path.join(search_path, name)
-                    if filename == self.filename:
-                        d(["check_precompile() exited", self.current_token])
-                        return
-                    d(["Checking for", name, "in",
-                        search_path if search_path else "source directory",
-                        "(", filename, ")"])
-                    if os.path.exists(filename):
-                        d(["Found include at", filename])
-                        include_file = filename
-
-                if not include_file:
+                if not os.path.exists(include_file):
                     raise MissingHeaderError(
                         "Could not find header: {0}".format(include_name))
 
-                try:
-                    fun_with_recursion = Styler(include_file, quiet=True)
-                except (RuntimeError, AssertionError) as err:
-                    self.current_token = include_token
-                    raise RuntimeError(
-                        "#included file {0} caused an error:\n\t{1}".format(
-                            include_file, err))
-                new_types = fun_with_recursion.found_types
-                defines = fun_with_recursion.found_defines
+                new_types, defines = self.load_header(include_file)
+
             d(["including", len(new_types), "types from", include_name])
             #add the types
             self.update_types(new_types)
@@ -1352,6 +1348,16 @@ class Styler(object):
         elif self.current_type() in [Type.PREPROCESSOR, Type.IF, Type.ELSE]:
             self.consume_line()
         d(["check_precompile() exited", self.current_token])
+
+    def load_header(self, include_file):
+        try:
+            fun_with_recursion = Styler(include_file, quiet=True)
+        except (RuntimeError, AssertionError) as err:
+            self.current_token = include_token
+            raise RuntimeError(
+                "#included file {0} caused an error:\n\t{1}".format(
+                    include_file, err))
+        return (fun_with_recursion.found_types, fun_with_recursion.found_defines)
 
     def update_types(self, new_types):
         self.found_types.extend(new_types)
