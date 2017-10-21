@@ -2255,11 +2255,14 @@ class Styler(object):
         #before we match, we just want to know what's coming next, since match
         #moves to the next meaningful token (but in this case we need to know
         #if it's a newline)
-        next = self.tokens[self.position+1]
+        next = None
+        if self.position + 1 < len(self.tokens):
+            next = self.tokens[self.position+1]
         self.check_naming(first, Errors.DEFINE)
         self.match() #the identifier (can't rely on it being Type.UNKNOWN)
         #just defining, no other values, nuffin'
-        if next.get_type() in [Type.NEWLINE, Type.COMMENT]:
+        if next and next.get_type() in [Type.NEWLINE, Type.COMMENT]:
+            d(["check_define(): found define only", first])
             return
         #is it a macro
         if self.current_type() == Type.LPAREN and \
@@ -2305,9 +2308,12 @@ class Styler(object):
         else:
             d(["check_define(): found non-macro define", first])
             self.check_whitespace(1)
+            start = True
             tokens = []
             while self.current_type() not in [Type.NEWLINE, Type.COMMENT]:
-                self.check_whitespace(1, ALLOW_ZERO)
+                if not start:
+                    self.check_whitespace(1, ALLOW_ZERO)
+                start = False
                 if self.current_type() == Type.LINE_CONT:
                     while self.current_type() != Type.NEWLINE:
                         self.move_token_cursor(self.position + 1)
