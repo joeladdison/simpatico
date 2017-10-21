@@ -1287,7 +1287,8 @@ class Styler(object):
                             include_file = filename
 
                     if include_file:
-                        new_types, defines = self.load_header(include_file)
+                        new_types, defines = self.load_header(
+                                include_file, include_token)
 
                 if new_types == -1:
                     print("".join([
@@ -1325,7 +1326,8 @@ class Styler(object):
                     raise MissingHeaderError(
                         "Could not find header: {0}".format(include_name))
 
-                new_types, defines = self.load_header(include_file)
+                new_types, defines = self.load_header(
+                        include_file, include_token)
 
             d(["including", len(new_types), "types from", include_name])
             #add the types
@@ -1349,7 +1351,7 @@ class Styler(object):
             self.consume_line()
         d(["check_precompile() exited", self.current_token])
 
-    def load_header(self, include_file):
+    def load_header(self, include_file, include_token):
         try:
             fun_with_recursion = Styler(include_file, quiet=True)
         except (RuntimeError, AssertionError) as err:
