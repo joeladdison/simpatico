@@ -112,7 +112,7 @@ class Type(object):
     (   #0          #1 ...
         ERROR_TYPE, DEFINE, INCLUDE, COMMENT, NEWLINE, COMMA, LBRACE, RBRACE,
         #8
-        LPAREN, RPAREN, MINUS, BINARY_OP, LOGICAL_OP, STAR,#8-13
+        LPAREN, RPAREN, MINUS, BINARY_OP, LOGICAL_OP, STAR,
         #14
         AMPERSAND, TYPE, CREMENT, IGNORE, EXTERN, BREAK, FOR, SWITCH, CASE,
         #23
@@ -438,6 +438,8 @@ class Tokeniser(object):
                     self.end_word()
             else:
                 self.add_to_word(c, n - self.line_start)
+        # Ensure the last word is ended
+        self.end_word()
 
     def get_tokens(self):
         return self.tokens
