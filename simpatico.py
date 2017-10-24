@@ -1250,11 +1250,12 @@ class Styler(object):
             else:
                 #update the type, since we have to reuse the token
                 self.current_token._type = Type.CONSTANT
-            include_std = False
+            include_quoted = False
             include_name = []
             include_token = None
             #include "stuff.h"
             if self.current_type() == Type.CONSTANT:
+                include_quoted = True
                 include_token = self.current_token
                 #already violated for whitespace if is_terrible
                 if not is_terrible:
@@ -1263,7 +1264,6 @@ class Styler(object):
                 self.match(Type.CONSTANT, MUST_NEWLINE)
             #include <std_stuff.h>
             else:
-                include_std = True
                 self.check_whitespace(1)
                 self.match() #<
                 while self.current_token.line != ">":
@@ -1275,61 +1275,41 @@ class Styler(object):
             include_name = "".join(include_name)
             new_types = []
             defines = {}
-            if include_std:
-                new_types = headers.standard_header_types.get(include_name, -1)
 
-                if new_types == -1:
-                    include_file = None
-                    for search_path in self.include_paths:
-                        filename = os.path.join(search_path, include_name)
-                        d(["Checking for", include_name, "in", search_path,
-                           "(", filename, ")"])
-                        if os.path.exists(filename):
-                            d(["Found include at", filename])
-                            include_file = filename
-
-                    if include_file:
-                        new_types, defines = self.load_header(
-                                include_file, include_token)
-
-                if new_types == -1:
-                    print("".join([
-                        "\nThe header <", include_name,
-                        "> was not found in the preprocessed list, "
-                        "nor was it found in the include search list.\n"
-                        "Please report this to the maintainer so it ",
-                        "can be fixed.\n",
-                        "Since the parsing will likely break terribly due to ",
-                        "unknown types\n(C is not a context free language), ",
-                        "simpatico will end parsing now."]))
-                    raise MissingHeaderError(
-                        "Could not find header: {0}".format(include_name))
-
-                #this is only here for iso646.h, which defines alternates
-                #for single binary operators
-                #multi-terminal targets will break here
-                new_defines = headers.standard_header_defines.get(include_name, [])
-                for define, definition in new_defines:
-                    token = Word()
-                    token.line = definition
-                    token.finalise()
-                    defines[define] = [token]
-            #custom header
-            else:
+            name = include_name
+            if include_quoted:
                 # strip the " from beginning and end
                 name = include_name[1:-1]
-                include_file = os.path.join(self.path, name)
 
-                if include_file == self.filename:
-                    d(["check_precompile() exited", self.current_token])
-                    return
+            # Try to find the file
+            include_file = self.locate_include(name, include_quoted)
 
-                if not os.path.exists(include_file):
+            if include_file == self.filename:
+                d(["check_precompile() exited - same as current file",
+                    self.current_token])
+                return
+
+            if include_file:
+                new_types, defines = self.load_include(
+                    include_file, include_token)
+            else:
+                # File was not on search path, so now try system includes
+                system_include = self.load_system_header(name)
+                if system_include is not None:
+                    new_types, defines = system_include
+                else:
+                    if not include_quoted:
+                        print("".join([
+                            "\nThe header <", include_name,
+                            "> was not found in the preprocessed list, "
+                            "nor was it found in the include search list.\n"
+                            "Please report this to the maintainer so it ",
+                            "can be fixed.\n",
+                            "Since the parsing will likely break terribly due to ",
+                            "unknown types\n(C is not a context free language), ",
+                            "simpatico will end parsing now."]))
                     raise MissingHeaderError(
                         "Could not find header: {0}".format(include_name))
-
-                new_types, defines = self.load_header(
-                        include_file, include_token)
 
             d(["including", len(new_types), "types from", include_name])
             #add the types
@@ -1353,7 +1333,32 @@ class Styler(object):
             self.consume_line()
         d(["check_precompile() exited", self.current_token])
 
-    def load_header(self, include_file, include_token):
+    def locate_include(self, include_name, quoted=False):
+        search_paths = []
+
+        if quoted:
+            # Quoted includes start in the current directory first
+            search_paths.append(self.path)
+
+        # Quoted and system both use the search path
+        # Simpatico does not support the -iquoted and -isystem flags, only -I,
+        # so we only have one search path to consider.
+        search_paths.extend(self.include_paths)
+
+        for search_path in search_paths:
+            filename = os.path.join(search_path, include_name)
+
+            d(["Checking for", include_name, "in",
+                search_path if search_path else "source directory",
+                "(", filename, ")"])
+
+            if os.path.exists(filename):
+                d(["Found include at", filename])
+                return filename
+
+        return None
+
+    def load_include(self, include_file, include_token):
         try:
             fun_with_recursion = Styler(include_file, quiet=True)
         except (RuntimeError, AssertionError) as err:
@@ -1362,6 +1367,24 @@ class Styler(object):
                 "#included file {0} caused an error:\n\t{1}".format(
                     include_file, err))
         return (fun_with_recursion.found_types, fun_with_recursion.found_defines)
+
+    def load_system_header(self, include_name):
+        new_types = headers.standard_header_types.get(include_name, -1)
+        if new_types == -1:
+            return None
+
+        # this is only here for iso646.h, which defines alternates
+        # for single binary operators
+        # multi-terminal targets will break here
+        new_defines = headers.standard_header_defines.get(include_name, [])
+        defines = {}
+        for define, definition in new_defines:
+            token = Word()
+            token.line = definition
+            token.finalise()
+            defines[define] = [token]
+
+        return new_types, defines
 
     def update_types(self, new_types):
         self.found_types.extend(new_types)
