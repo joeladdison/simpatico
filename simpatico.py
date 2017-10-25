@@ -1360,7 +1360,8 @@ class Styler(object):
 
     def load_include(self, include_file, include_token):
         try:
-            fun_with_recursion = Styler(include_file, quiet=True)
+            fun_with_recursion = Styler(
+                include_file, quiet=True, include_paths=self.include_paths)
         except (RuntimeError, AssertionError) as err:
             self.current_token = include_token
             raise RuntimeError(
