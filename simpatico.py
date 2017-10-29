@@ -719,16 +719,32 @@ class EnumStyle(object):
     def __init__(self):
         pass
 
+class FunctionPrototype(object):
+    def __init__(self, name, token, has_comment):
+        self.name = name
+        self.token = token
+        self.has_comment = has_comment
+
+class IncludedFile(object):
+    def __init__(self, path, types, defines, functions):
+        self.path = path
+        self.types = types
+        self.defines = defines
+        self.functions = functions
+
 class Styler(object):
     MAX = False
     """ Where style violations are born """
     def __init__(self, filename, quiet = False, output_file = False,
-            error_tracker=Errors, include_paths=()):
+            error_tracker=Errors, include_paths=(), loaded_includes=None):
         #some setup
         self.errors = error_tracker(output_file)
         self.found_types = []
         self.found_defines = {}
+        self.found_functions = {}
+        self.include_paths = include_paths
         self.included_files = []
+        self.loaded_includes = loaded_includes or {}
         self.failed = False
         self.filename = filename
         self.quiet = quiet
@@ -739,7 +755,6 @@ class Styler(object):
             self.path = filename[:filename.rfind("/") + 1]
         elif "\\" in filename:
             self.path = filename[:filename.rfind("\\") + 1]
-        self.include_paths = include_paths
         self.position = 0
         self.depth = 0
         self.line_continuation = False
@@ -929,10 +944,19 @@ class Styler(object):
             else:
                 self.errors.braces(old, Errors.RUNON)
 
-    def check_comment(self, token, declType):
+    def check_comment(self, token, declType, name=""):
         if declType == Errors.FUNCTION:
             if not self.comments.get(token.line_number - 1):
-                self.errors.comments(token.line_number, declType)
+                # Check to see if there is a function prototype with a comment
+                comment_in_include = False
+                if name:
+                    for include in self.included_files:
+                        func = include.functions.get(name)
+                        if func and func.has_comment:
+                            comment_in_include = True
+                            break
+                if not comment_in_include:
+                    self.errors.comments(token.line_number, declType)
         elif declType == Errors.GLOBALS:
             if not self.comments.get(token.line_number - 1) and \
                     not self.comments.get(token.line_number):
@@ -1311,11 +1335,11 @@ class Styler(object):
                     raise MissingHeaderError(
                         "Could not find header: {0}".format(include_name))
 
-            d(["including", len(new_types), "types from", include_name])
             #add the types
+            d(["including", len(new_types), "types from", include_name])
             self.update_types(new_types)
-            self.included_files.append(include_name)
             #update any defined identifiers
+            d(["including", len(defines), "defines from", include_name])
             for key in defines:
                 self.found_defines[key] = defines[key]
                 for token in self.tokens[self.position:]:
@@ -1359,15 +1383,29 @@ class Styler(object):
         return None
 
     def load_include(self, include_file, include_token):
-        try:
-            fun_with_recursion = Styler(
-                include_file, quiet=True, include_paths=self.include_paths)
-        except (RuntimeError, AssertionError) as err:
-            self.current_token = include_token
-            raise RuntimeError(
-                "#included file {0} caused an error:\n\t{1}".format(
-                    include_file, err))
-        return (fun_with_recursion.found_types, fun_with_recursion.found_defines)
+        include_file_path = os.path.abspath(include_file)
+        included_file = self.loaded_includes.get(include_file_path)
+        if included_file:
+            d(['using already loaded file', include_file_path])
+        else:
+            d(['loading file', include_file_path])
+            try:
+                fun_with_recursion = Styler(
+                    include_file, quiet=True, include_paths=self.include_paths,
+                    loaded_includes=self.loaded_includes)
+                included_file = IncludedFile(include_file_path,
+                    fun_with_recursion.found_types,
+                    fun_with_recursion.found_defines,
+                    fun_with_recursion.found_functions)
+                self.loaded_includes[include_file_path] = included_file
+            except (RuntimeError, AssertionError) as err:
+                self.current_token = include_token
+                raise RuntimeError(
+                    "#included file {0} caused an error:\n\t{1}".format(
+                        include_file, err))
+
+        self.included_files.append(included_file)
+        return (included_file.types, included_file.defines)
 
     def load_system_header(self, include_name):
         new_types = headers.standard_header_types.get(include_name, -1)
@@ -1433,7 +1471,7 @@ class Styler(object):
                     d(["naming violation for function:", name])
                     self.errors.naming(token, name_type)
                     break
-            self.check_comment(token, name_type)
+            self.check_comment(token, name_type, name)
         elif name_type == Errors.TYPE:
             if lower.endswith("struct"):
                 d(["naming violation for hungarian type:", name])
@@ -2516,6 +2554,7 @@ class Styler(object):
             paren_line = self.current_token.line_number
             self.match(Type.RPAREN, MAY_NEWLINE)
             if self.current_type() == Type.LBRACE:
+                # we have a function definition
                 if self.filename.endswith(".h"):
                     self.errors.overall(self.current_token.line_number,
                             "Headers should not contain function definitions")
@@ -2541,6 +2580,7 @@ class Styler(object):
                 self.last_global_line_number = self.current_token.line_number
                 self.match(Type.RBRACE, MUST_NEWLINE, MUST_NEWLINE)
             elif self.current_type() == Type.ASSIGNMENT:
+                # function pointer
                 self.check_whitespace(1)
                 self.match(Type.ASSIGNMENT)
                 self.check_whitespace(1)
@@ -2548,6 +2588,16 @@ class Styler(object):
                 self.check_whitespace(0)
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             else:
+                # function prototype
+                if name:
+                    function_name = name.line
+                    has_comments = self.comments.get(name.line_number - 1)
+                    self.found_functions[function_name] = FunctionPrototype(
+                        function_name, name, has_comments)
+                    comments_msg = "which has comments"
+                    if not has_comments:
+                        comments_msg = "which does not have comments"
+                    d(['found function prototype', function_name, comments_msg])
                 self.check_whitespace(0)
                 self.match(Type.SEMICOLON, MUST_NEWLINE)
             d(["check_declaration() exited a func", self.current_token])

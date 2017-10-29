@@ -16,6 +16,7 @@ from .indents import *
 from .length import *
 from .braces import *
 from .whitespace import *
+from .comments import *
 from .overall import *
 from .general import *
 
